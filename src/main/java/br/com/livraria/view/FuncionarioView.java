@@ -2,6 +2,7 @@ package br.com.livraria.view;
 
 import br.com.livraria.model.Funcionario;
 import br.com.livraria.model.dao.FuncionarioDAO;
+import br.com.livraria.model.validation.ClienteValidator;
 import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
@@ -9,6 +10,8 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /** Janela do CRUD de funcionários, com uma aba para cada operação. */
 public class FuncionarioView extends JFrame {
@@ -28,10 +31,14 @@ public class FuncionarioView extends JFrame {
     public FuncionarioView() { this(0); }
 
     public FuncionarioView(int abaInicial) {
-        setTitle("Funcionários");
+        setTitle("Gestão de Funcionários");
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(1000, 620);
-        setMinimumSize(new Dimension(850, 520));
+
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int largura = Math.max(1060, Math.min(1360, (int) (screenSize.width * 0.85)));
+        int altura = Math.max(700, Math.min(880, (int) (screenSize.height * 0.85)));
+        setSize(largura, altura);
+        setMinimumSize(new Dimension(980, 620));
         setLocationRelativeTo(null);
         montarAbas();
         add(abas);
@@ -78,7 +85,7 @@ public class FuncionarioView extends JFrame {
 
     private JPanel criarAbaCadastro() {
         JPanel painel = painelComMargem();
-        painel.add(cadastro.criarPainel(), BorderLayout.NORTH);
+        painel.add(cadastro.criarPainel(false), BorderLayout.NORTH);
         JButton limpar = new JButton("Limpar");
         JButton salvar = new JButton("Cadastrar funcionário");
         limpar.addActionListener(e -> cadastro.limpar());
@@ -90,7 +97,7 @@ public class FuncionarioView extends JFrame {
 
     private JPanel criarAbaAtualizacao() {
         JPanel painel = painelComMargem();
-        painel.add(atualizacao.criarPainel(), BorderLayout.NORTH);
+        painel.add(atualizacao.criarPainel(true), BorderLayout.NORTH);
         JLabel instrucao = new JLabel("Escolha um funcionário na aba Consultar para carregar os dados.");
         instrucao.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
         JButton salvar = new JButton("Salvar alterações");
@@ -155,6 +162,8 @@ public class FuncionarioView extends JFrame {
         } catch (SQLException | ValidationException ex) { avisar(ex.getMessage()); }
     }
 
+    private static final DateTimeFormatter FORMATO_BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private void preencherAtualizacao() {
         int linha = tabela.convertRowIndexToModel(tabela.getSelectedRow());
         atualizacao.id.setText(String.valueOf(modelo.getValueAt(linha, 0)));
@@ -182,7 +191,20 @@ public class FuncionarioView extends JFrame {
             Boolean ativo = "Todos".equals(status) ? null : "Ativos".equals(status);
             var funcionarios = dao.listar("Todos".equals(cargo) ? null : cargo, ativo);
             modelo.setRowCount(0);
-            for (Funcionario f : funcionarios) modelo.addRow(new Object[]{f.getIdFuncionario(), f.getIdLoja(), f.getNome(), f.getCpf(), f.getCargo(), f.getDataAdmissao(), f.getTelefone(), f.isAtivo() ? "Sim" : "Não", f.getQuantidadePedidos()});
+            for (Funcionario f : funcionarios) {
+                String admFormatada = f.getDataAdmissao() != null ? f.getDataAdmissao().format(FORMATO_BR) : "-";
+                modelo.addRow(new Object[]{
+                        f.getIdFuncionario(),
+                        f.getIdLoja(),
+                        f.getNome(),
+                        f.getCpf(),
+                        f.getCargo(),
+                        admFormatada,
+                        f.getTelefone(),
+                        f.isAtivo() ? "Sim" : "Não",
+                        f.getQuantidadePedidos()
+                });
+            }
         } catch (SQLException ex) { avisar("Não foi possível carregar funcionários.\n" + ex.getMessage()); }
     }
 
@@ -193,38 +215,116 @@ public class FuncionarioView extends JFrame {
         private final JComboBox<String> cargo = new JComboBox<>(new String[]{"Caixa", "Atendente", "Vendedor"});
         private final JCheckBox ativo = new JCheckBox("Ativo", true);
 
-        private JPanel criarPainel() {
-            JPanel painel = new JPanel(new GridLayout(0, 4, 8, 10));
+        private JPanel criarPainel(boolean isAtualizacao) {
+            JPanel painel = new JPanel(new GridLayout(0, 4, 10, 12));
             painel.setBorder(BorderFactory.createTitledBorder("Dados do funcionário"));
-            id.setEditable(false);
-            painel.add(new JLabel("ID")); painel.add(id);
-            painel.add(new JLabel("ID da loja *")); painel.add(loja);
-            painel.add(new JLabel("Nome *")); painel.add(nome);
-            painel.add(new JLabel("CPF *")); painel.add(cpf);
-            painel.add(new JLabel("Cargo *")); painel.add(cargo);
-            painel.add(new JLabel("Admissão (AAAA-MM-DD) *")); painel.add(admissao);
-            painel.add(new JLabel("Telefone")); painel.add(telefone);
-            painel.add(new JLabel("Status")); painel.add(ativo);
+            
+            if (isAtualizacao) {
+                id.setEditable(false);
+                painel.add(new JLabel("ID do Funcionário"));
+                painel.add(id);
+            }
+
+            painel.add(new JLabel("ID da Loja *"));
+            painel.add(loja);
+            loja.setToolTipText("Informe o código da loja (padrão: 1)");
+
+            painel.add(new JLabel("Nome Completo *"));
+            painel.add(nome);
+
+            painel.add(new JLabel("CPF (com validação) *"));
+            painel.add(cpf);
+            cpf.setToolTipText("Digite os 11 dígitos numéricos do CPF");
+
+            painel.add(new JLabel("Cargo *"));
+            painel.add(cargo);
+
+            painel.add(new JLabel("Admissão (DD/MM/AAAA) *"));
+            painel.add(admissao);
+            admissao.setToolTipText("Ex: 15/02/2024");
+
+            painel.add(new JLabel("Telefone"));
+            painel.add(telefone);
+
+            painel.add(new JLabel("Status"));
+            painel.add(ativo);
+
             return painel;
         }
 
         private Funcionario ler(String idSelecionado) {
+            Funcionario f = new Funcionario();
+            String valorId = idSelecionado == null ? "" : idSelecionado.trim();
+            if (!valorId.isEmpty()) {
+                try {
+                    f.setIdFuncionario(Integer.valueOf(valorId));
+                } catch (NumberFormatException e) {
+                    throw new ValidationException("ID de funcionário inválido.");
+                }
+            }
+
+            String lojaTxt = loja.getText().trim();
+            if (lojaTxt.isEmpty()) {
+                f.setIdLoja(1); // Loja padrão (Matriz)
+            } else {
+                try {
+                    f.setIdLoja(Integer.valueOf(lojaTxt));
+                } catch (NumberFormatException e) {
+                    throw new ValidationException("O ID da loja deve ser numérico (ex: 1).");
+                }
+            }
+
+            String nomeTxt = nome.getText().trim();
+            if (nomeTxt.isBlank()) {
+                throw new ValidationException("Informe o nome do funcionário.");
+            }
+            f.setNome(nomeTxt);
+
+            // Validação estrita do cálculo de dígitos verificadores do CPF
+            String cpfTxt = cpf.getText().trim();
+            if (cpfTxt.isBlank()) {
+                throw new ValidationException("Informe o CPF do funcionário.");
+            }
+            ClienteValidator.validarCpf(cpfTxt, true);
+            f.setCpf(ClienteValidator.formatarCpf(cpfTxt));
+
+            f.setCargo((String) cargo.getSelectedItem());
+            f.setDataAdmissao(parseDataAdmissao(admissao.getText().trim()));
+            f.setTelefone(telefone.getText().trim());
+            f.setAtivo(ativo.isSelected());
+
+            return f;
+        }
+
+        private LocalDate parseDataAdmissao(String texto) {
+            if (texto == null || texto.trim().isEmpty()) {
+                throw new ValidationException("Informe a data de admissão no formato DD/MM/AAAA.");
+            }
+            String t = texto.trim();
             try {
-                Funcionario f = new Funcionario();
-                String valorId = idSelecionado == null ? "" : idSelecionado.trim();
-                if (!valorId.isEmpty()) f.setIdFuncionario(Integer.valueOf(valorId));
-                f.setIdLoja(Integer.valueOf(loja.getText().trim()));
-                f.setNome(nome.getText().trim()); f.setCpf(cpf.getText().trim());
-                f.setCargo((String) cargo.getSelectedItem());
-                f.setDataAdmissao(LocalDate.parse(admissao.getText().trim()));
-                f.setTelefone(telefone.getText().trim()); f.setAtivo(ativo.isSelected());
-                if (f.getNome().isBlank() || f.getCpf().isBlank()) throw new ValidationException("Nome e CPF são obrigatórios.");
-                return f;
-            } catch (NumberFormatException | java.time.format.DateTimeParseException ex) {
-                throw new ValidationException("Informe o ID da loja e a admissão no formato AAAA-MM-DD.");
+                if (t.contains("/")) {
+                    return LocalDate.parse(t, FORMATO_BR);
+                } else if (t.contains("-")) {
+                    return LocalDate.parse(t);
+                } else if (t.length() == 8 && t.matches("\\d{8}")) {
+                    String formatado = t.substring(0, 2) + "/" + t.substring(2, 4) + "/" + t.substring(4);
+                    return LocalDate.parse(formatado, FORMATO_BR);
+                }
+                return LocalDate.parse(t, FORMATO_BR);
+            } catch (DateTimeParseException ex) {
+                throw new ValidationException("Data de admissão inválida (" + texto + "). Use o formato DD/MM/AAAA (ex: 15/02/2024).");
             }
         }
 
-        private void limpar() { id.setText(""); loja.setText(""); nome.setText(""); cpf.setText(""); admissao.setText(""); telefone.setText(""); cargo.setSelectedIndex(0); ativo.setSelected(true); }
+        private void limpar() {
+            id.setText("");
+            loja.setText("1");
+            nome.setText("");
+            cpf.setText("");
+            admissao.setText("");
+            telefone.setText("");
+            cargo.setSelectedIndex(0);
+            ativo.setSelected(true);
+        }
     }
 }
