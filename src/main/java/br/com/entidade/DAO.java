@@ -27,9 +27,9 @@ public class DAO {
             }
 
             String url = System.getProperty("db.url",
-                    "jdbc:mysql://localhost:3306/livraria?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo&characterEncoding=UTF-8");
+                    "jdbc:mysql://localhost:3307/livraria?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo&characterEncoding=UTF-8");
             String user = System.getProperty("db.user", "root");
-            String senha = System.getProperty("db.password", "banco_secret");
+            String senha = System.getProperty("db.password", "root");
 
             try {
                 con = DriverManager.getConnection(url, user, senha);
