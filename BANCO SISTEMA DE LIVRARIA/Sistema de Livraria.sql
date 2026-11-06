@@ -86,6 +86,8 @@ CREATE TABLE funcionario (
 	id_loja INT NOT NULL,
 	nome VARCHAR(120) NOT NULL,
 	cpf VARCHAR(14) UNIQUE,
+	cargo VARCHAR(40) NOT NULL DEFAULT 'Atendente',
+	data_admissao DATE,
 	email VARCHAR(300) NOT NULL,
 	nasc DATE,
 	telefone VARCHAR(20),

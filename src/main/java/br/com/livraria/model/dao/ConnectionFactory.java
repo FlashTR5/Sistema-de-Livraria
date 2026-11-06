@@ -31,11 +31,11 @@ public class ConnectionFactory {
         }
 
         url = System.getProperty("db.url",
-                props.getProperty("db.url", "jdbc:mysql://localhost:3306/livraria?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo&characterEncoding=UTF-8"));
+                props.getProperty("db.url", "jdbc:mysql://localhost:3307/livraria?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo&characterEncoding=UTF-8"));
         user = System.getProperty("db.user",
                 props.getProperty("db.user", "root"));
         password = System.getProperty("db.password",
-                props.getProperty("db.password", "banco_secret"));
+                props.getProperty("db.password", "root"));
 
         carregarDriver();
     }
