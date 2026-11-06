@@ -34,10 +34,21 @@ public class DAO {
             try {
                 con = DriverManager.getConnection(url, user, senha);
             } catch (SQLException exTentativa) {
-                // Tentativa de fallback sem senha caso o MySQL local não tenha senha configurada
-                try {
-                    con = DriverManager.getConnection(url, user, "");
-                } catch (SQLException exFallback) {
+                // Tenta fallback com porta 3306 e senhas alternativas
+                String urlAlt = url.contains(":3307/") ? url.replace(":3307/", ":3306/") : url.replace(":3306/", ":3307/");
+                boolean conectou = false;
+                for (String u : new String[]{urlAlt, url}) {
+                    for (String s : new String[]{"banco_secret", "root", ""}) {
+                        try {
+                            con = DriverManager.getConnection(u, user, s);
+                            conectou = true;
+                            break;
+                        } catch (SQLException ignored) {
+                        }
+                    }
+                    if (conectou) break;
+                }
+                if (!conectou) {
                     throw exTentativa;
                 }
             }

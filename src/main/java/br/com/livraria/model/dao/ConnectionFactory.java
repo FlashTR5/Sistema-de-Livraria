@@ -52,11 +52,39 @@ public class ConnectionFactory {
     }
 
     /**
-     * Obtém uma nova conexão aberta com o MySQL.
+     * Obtém uma nova conexão aberta com o MySQL, com fallback inteligente de porta (3306/3307) e senhas conhecidas.
      */
     public static Connection getConnection() throws SQLException {
         carregarDriver();
-        return DriverManager.getConnection(url, user, password);
+        try {
+            return DriverManager.getConnection(url, user, password);
+        } catch (SQLException exOriginal) {
+            // Tenta porta alternativa se for falha de comunicação
+            String urlAlternativa = null;
+            if (url.contains(":3307/")) {
+                urlAlternativa = url.replace(":3307/", ":3306/");
+            } else if (url.contains(":3306/")) {
+                urlAlternativa = url.replace(":3306/", ":3307/");
+            }
+
+            String[] senhasParaTentar = new String[]{password, "banco_secret", "root", ""};
+            String[] urlsParaTentar = urlAlternativa != null ? new String[]{urlAlternativa, url} : new String[]{url};
+
+            for (String u : urlsParaTentar) {
+                for (String p : senhasParaTentar) {
+                    if (u.equals(url) && p.equals(password)) continue;
+                    try {
+                        Connection conn = DriverManager.getConnection(u, user, p);
+                        // Sucesso no fallback: atualiza para próximas chamadas
+                        url = u;
+                        password = p;
+                        return conn;
+                    } catch (SQLException ignored) {
+                    }
+                }
+            }
+            throw exOriginal;
+        }
     }
 
     /**
