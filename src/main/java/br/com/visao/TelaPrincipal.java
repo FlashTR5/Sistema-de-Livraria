@@ -3,6 +3,7 @@ package br.com.visao;
 import br.com.livraria.controller.ClienteController;
 import br.com.livraria.model.service.CargaCsvService;
 import br.com.livraria.view.ClienteView;
+import br.com.livraria.view.FuncionarioView;
 
 import javax.swing.*;
 import java.awt.*;
@@ -16,13 +17,6 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JMenu jMenuClientes;
-    private javax.swing.JMenuItem jMenuItemCadastrar;
-    private javax.swing.JMenuItem jMenuItemListar;
-    private javax.swing.JMenuItem jMenuItemAlterar;
-    private javax.swing.JMenuItem jMenuItemDeletar;
-    private javax.swing.JMenuItem jMenuItemPainelGeral;
-    private javax.swing.JMenuItem jMenuItemCargaCsv;
-    private javax.swing.JMenuItem jMenuItemSair;
 
     public TelaPrincipal() {
         initComponents();
@@ -34,70 +28,31 @@ public class TelaPrincipal extends javax.swing.JFrame {
         setSize(940, 620);
         setLocationRelativeTo(null);
 
-        Font fonteMenu = new Font("Segoe UI", Font.PLAIN, 15);
+        Font fonteTituloMenu = new Font("Segoe UI", Font.BOLD, 15);
 
         // Barra de Menus
         jMenuBar1 = new JMenuBar();
         jMenuClientes = new JMenu("Clientes");
-        jMenuClientes.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        jMenuClientes.setFont(fonteTituloMenu);
+        jMenuClientes.setPreferredSize(new Dimension(118, 30));
 
-        jMenuItemCadastrar = new JMenuItem("1. Cadastrar Cliente (Create)");
-        jMenuItemCadastrar.setFont(fonteMenu);
-        jMenuItemCadastrar.addActionListener(evt -> {
-            CadastroCliente tela = new CadastroCliente();
-            tela.setVisible(true);
-        });
-        jMenuClientes.add(jMenuItemCadastrar);
-
-        jMenuItemListar = new JMenuItem("2. Listar e Buscar Clientes (Read)");
-        jMenuItemListar.setFont(fonteMenu);
-        jMenuItemListar.addActionListener(evt -> {
-            FormListarClientes tela = new FormListarClientes();
-            tela.setVisible(true);
-        });
-        jMenuClientes.add(jMenuItemListar);
-
-        jMenuItemAlterar = new JMenuItem("3. Alterar Cliente (Update)");
-        jMenuItemAlterar.setFont(fonteMenu);
-        jMenuItemAlterar.addActionListener(evt -> {
-            FormAlterarCliente tela = new FormAlterarCliente();
-            tela.setVisible(true);
-        });
-        jMenuClientes.add(jMenuItemAlterar);
-
-        jMenuItemDeletar = new JMenuItem("4. Deletar Cliente (Delete)");
-        jMenuItemDeletar.setFont(fonteMenu);
-        jMenuItemDeletar.addActionListener(evt -> {
-            FormDeletarCliente tela = new FormDeletarCliente();
-            tela.setVisible(true);
-        });
-        jMenuClientes.add(jMenuItemDeletar);
-
-        jMenuClientes.addSeparator();
-
-        jMenuItemPainelGeral = new JMenuItem("Painel Geral de Clientes (Tela Única)");
-        jMenuItemPainelGeral.setFont(fonteMenu);
-        jMenuItemPainelGeral.addActionListener(evt -> {
-            ClienteController controller = new ClienteController();
-            ClienteView tela = new ClienteView(controller);
-            tela.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-            tela.setVisible(true);
-        });
-        jMenuClientes.add(jMenuItemPainelGeral);
-
-        jMenuItemCargaCsv = new JMenuItem("Executar Carga carga_clientes.csv");
-        jMenuItemCargaCsv.setFont(fonteMenu);
-        jMenuItemCargaCsv.addActionListener(evt -> acaoCargaCsv());
-        jMenuClientes.add(jMenuItemCargaCsv);
-
-        jMenuClientes.addSeparator();
-
-        jMenuItemSair = new JMenuItem("Sair");
-        jMenuItemSair.setFont(fonteMenu);
-        jMenuItemSair.addActionListener(evt -> System.exit(0));
-        jMenuClientes.add(jMenuItemSair);
+        adicionarOpcaoCliente(jMenuClientes, "1. Consultar clientes", 0);
+        adicionarOpcaoCliente(jMenuClientes, "2. Cadastrar cliente", 1);
+        adicionarOpcaoCliente(jMenuClientes, "3. Atualizar cliente", 2);
+        adicionarOpcaoCliente(jMenuClientes, "4. Excluir cliente", 3);
 
         jMenuBar1.add(jMenuClientes);
+        JMenu menuFuncionarios = new JMenu("Funcionários");
+        menuFuncionarios.setFont(fonteTituloMenu);
+        menuFuncionarios.setPreferredSize(new Dimension(118, 30));
+        adicionarOpcaoFuncionario(menuFuncionarios, "1. Consultar funcionários", 0);
+        adicionarOpcaoFuncionario(menuFuncionarios, "2. Cadastrar funcionário", 1);
+        adicionarOpcaoFuncionario(menuFuncionarios, "3. Atualizar funcionário", 2);
+        adicionarOpcaoFuncionario(menuFuncionarios, "4. Excluir funcionário", 3);
+        jMenuBar1.add(menuFuncionarios);
+        // Reaplica a mesma fonte aos dois títulos após a instalação na barra.
+        jMenuClientes.setFont(fonteTituloMenu);
+        menuFuncionarios.setFont(fonteTituloMenu);
         setJMenuBar(jMenuBar1);
 
         // Painel Central com Banner e Botões de Atalho
@@ -122,16 +77,16 @@ public class TelaPrincipal extends javax.swing.JFrame {
         // Grid com botões rápidos (3 linhas x 2 colunas)
         JPanel painelBotoes = new JPanel(new GridLayout(3, 2, 20, 20));
 
-        JButton btnCadastrar = criarBotaoMenu("Cadastrar Cliente (Create)");
+        JButton btnCadastrar = criarBotaoMenu("Cadastrar Cliente");
         btnCadastrar.addActionListener(evt -> new CadastroCliente().setVisible(true));
 
-        JButton btnListar = criarBotaoMenu("Listar / Buscar Clientes (Read)");
+        JButton btnListar = criarBotaoMenu("Listar / Buscar Clientes");
         btnListar.addActionListener(evt -> new FormListarClientes().setVisible(true));
 
-        JButton btnAlterar = criarBotaoMenu("Alterar Cliente (Update)");
+        JButton btnAlterar = criarBotaoMenu("Alterar Cliente");
         btnAlterar.addActionListener(evt -> new FormAlterarCliente().setVisible(true));
 
-        JButton btnDeletar = criarBotaoMenu("Excluir Cliente (Delete)");
+        JButton btnDeletar = criarBotaoMenu("Excluir Cliente");
         btnDeletar.addActionListener(evt -> new FormDeletarCliente().setVisible(true));
 
         JButton btnCsv = criarBotaoMenu("Carregar carga_clientes.csv");
@@ -162,6 +117,31 @@ public class TelaPrincipal extends javax.swing.JFrame {
         painelCentral.add(lblRodape, BorderLayout.SOUTH);
 
         setContentPane(painelCentral);
+    }
+
+    private void adicionarOpcaoFuncionario(JMenu menu, String texto, int aba) {
+        JMenuItem item = new JMenuItem(texto);
+        item.addActionListener(evt -> abrirTelaFuncionarios(aba));
+        menu.add(item);
+    }
+
+    private void adicionarOpcaoCliente(JMenu menu, String texto, int operacao) {
+        JMenuItem item = new JMenuItem(texto);
+        item.addActionListener(evt -> abrirTelaClientes(operacao));
+        menu.add(item);
+    }
+
+    private void abrirTelaClientes(int aba) {
+        ClienteController controller = new ClienteController();
+        ClienteView tela = new ClienteView(controller, aba);
+        tela.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        tela.setVisible(true);
+    }
+
+    private void abrirTelaFuncionarios(int aba) {
+        FuncionarioView tela = new FuncionarioView(aba);
+        tela.setLocationRelativeTo(this);
+        tela.setVisible(true);
     }
 
     private JButton criarBotaoMenu(String texto) {
