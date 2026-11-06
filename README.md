@@ -1,10 +1,8 @@
-```text
-████  ███ ████  █     ███  ███  █████ █   █ █████  ███   ███ 
-█   █  █  █   █ █      █  █   █   █   █   █ █     █     █   █
-████   █  ████  █      █  █   █   █   █████ ████  █     █████
-█   █  █  █   █ █      █  █   █   █   █   █ █     █     █   █
-████  ███ ████  █████ ███  ███    █   █   █ █████  ███  █   █
+# Sistema de Livraria
 
+Aplicação desktop em Java para cadastro e consulta de clientes e funcionários de uma livraria. A interface é feita com Swing; a persistência usa JDBC e MySQL.
+
+```text
               _         _
   __   ___.--'_`.     .'_`--.___  __
  ( _`.'. -   'o` )   ( 'o`   - .`.'_ )
@@ -12,12 +10,8 @@
 ( \`. )    //\`         '/\\    ( .'/ )
  \_`-'`---'\\__,        ,__//`---'`-'_/
   \`         `-\         /-'         '/
-   `                    '   
+   `                    '
 ```
-
-# Sistema de Livraria
-
-Aplicação desktop em Java para cadastro e consulta de clientes e funcionários de uma livraria. A interface é feita com Swing; a persistência usa JDBC e MySQL.
 
 ## Requisitos
 
