@@ -7,12 +7,25 @@ import com.formdev.flatlaf.FlatLightLaf;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * Tela Principal do Sistema de Gestão de Livraria.
  * Disponibiliza menus superiores e painéis de atalho para os módulos de Clientes, Livros e Funcionários.
  */
 public class TelaPrincipal extends javax.swing.JFrame {
+    private JPanel painelConteudo;
+    private JPanel painelInicial;
+    private Component telaAtual;
+    private String tituloAtual = "Painel Principal";
+    private final Deque<TelaAnterior> historico = new ArrayDeque<>();
+
+    private static class TelaAnterior {
+        final Component componente;
+        final String titulo;
+        TelaAnterior(Component componente, String titulo) { this.componente = componente; this.titulo = titulo; }
+    }
 
     public TelaPrincipal() {
         initComponents();
@@ -36,22 +49,22 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         JMenuItem miCadCliente = new JMenuItem("1. Cadastrar Cliente (Create)");
         miCadCliente.setFont(fonteItemMenu);
-        miCadCliente.addActionListener(e -> new CadastroCliente().setVisible(true));
+        miCadCliente.addActionListener(e -> abrirTelaInterna(new CadastroCliente()));
         menuClientes.add(miCadCliente);
 
         JMenuItem miListCliente = new JMenuItem("2. Listar Clientes (Read)");
         miListCliente.setFont(fonteItemMenu);
-        miListCliente.addActionListener(e -> new FormListarClientes().setVisible(true));
+        miListCliente.addActionListener(e -> abrirTelaInterna(new FormListarClientes()));
         menuClientes.add(miListCliente);
 
         JMenuItem miAltCliente = new JMenuItem("3. Alterar Cliente (Update)");
         miAltCliente.setFont(fonteItemMenu);
-        miAltCliente.addActionListener(e -> new FormAlterarCliente().setVisible(true));
+        miAltCliente.addActionListener(e -> abrirTelaInterna(new FormAlterarCliente()));
         menuClientes.add(miAltCliente);
 
         JMenuItem miDelCliente = new JMenuItem("4. Deletar Cliente (Delete)");
         miDelCliente.setFont(fonteItemMenu);
-        miDelCliente.addActionListener(e -> new FormDeletarCliente().setVisible(true));
+        miDelCliente.addActionListener(e -> abrirTelaInterna(new FormDeletarCliente()));
         menuClientes.add(miDelCliente);
 
         menuBar.add(menuClientes);
@@ -62,22 +75,22 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         JMenuItem miCadLivro = new JMenuItem("1. Cadastrar Livro (Create)");
         miCadLivro.setFont(fonteItemMenu);
-        miCadLivro.addActionListener(e -> new CadastroLivro().setVisible(true));
+        miCadLivro.addActionListener(e -> abrirTelaInterna(new CadastroLivro()));
         menuLivros.add(miCadLivro);
 
         JMenuItem miListLivro = new JMenuItem("2. Listar Livros (Read)");
         miListLivro.setFont(fonteItemMenu);
-        miListLivro.addActionListener(e -> new FormListarLivros().setVisible(true));
+        miListLivro.addActionListener(e -> abrirTelaInterna(new FormListarLivros()));
         menuLivros.add(miListLivro);
 
         JMenuItem miAltLivro = new JMenuItem("3. Alterar Livro (Update)");
         miAltLivro.setFont(fonteItemMenu);
-        miAltLivro.addActionListener(e -> new FormAlterarLivro().setVisible(true));
+        miAltLivro.addActionListener(e -> abrirTelaInterna(new FormAlterarLivro()));
         menuLivros.add(miAltLivro);
 
         JMenuItem miDelLivro = new JMenuItem("4. Deletar Livro (Delete)");
         miDelLivro.setFont(fonteItemMenu);
-        miDelLivro.addActionListener(e -> new FormDeletarLivro().setVisible(true));
+        miDelLivro.addActionListener(e -> abrirTelaInterna(new FormDeletarLivro()));
         menuLivros.add(miDelLivro);
 
         menuBar.add(menuLivros);
@@ -88,22 +101,22 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         JMenuItem miCadFunc = new JMenuItem("1. Cadastrar Funcionário (Create)");
         miCadFunc.setFont(fonteItemMenu);
-        miCadFunc.addActionListener(e -> new CadastroFuncionario().setVisible(true));
+        miCadFunc.addActionListener(e -> abrirTelaInterna(new CadastroFuncionario()));
         menuFuncionarios.add(miCadFunc);
 
         JMenuItem miListFunc = new JMenuItem("2. Listar Funcionários (Read)");
         miListFunc.setFont(fonteItemMenu);
-        miListFunc.addActionListener(e -> new FormListarFuncionarios().setVisible(true));
+        miListFunc.addActionListener(e -> abrirTelaInterna(new FormListarFuncionarios()));
         menuFuncionarios.add(miListFunc);
 
         JMenuItem miAltFunc = new JMenuItem("3. Alterar Funcionário (Update)");
         miAltFunc.setFont(fonteItemMenu);
-        miAltFunc.addActionListener(e -> new FormAlterarFuncionario().setVisible(true));
+        miAltFunc.addActionListener(e -> abrirTelaInterna(new FormAlterarFuncionario()));
         menuFuncionarios.add(miAltFunc);
 
         JMenuItem miDelFunc = new JMenuItem("4. Deletar Funcionário (Delete)");
         miDelFunc.setFont(fonteItemMenu);
-        miDelFunc.addActionListener(e -> new FormDeletarFuncionario().setVisible(true));
+        miDelFunc.addActionListener(e -> abrirTelaInterna(new FormDeletarFuncionario()));
         menuFuncionarios.add(miDelFunc);
 
         menuBar.add(menuFuncionarios);
@@ -114,22 +127,22 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         JMenuItem miCadEstoque = new JMenuItem("1. Entrada de Estoque (Create)");
         miCadEstoque.setFont(fonteItemMenu);
-        miCadEstoque.addActionListener(e -> new CadastroEstoque().setVisible(true));
+        miCadEstoque.addActionListener(e -> abrirTelaInterna(new CadastroEstoque()));
         menuEstoque.add(miCadEstoque);
 
         JMenuItem miListEstoque = new JMenuItem("2. Consultar / Alertas de Estoque (Read)");
         miListEstoque.setFont(fonteItemMenu);
-        miListEstoque.addActionListener(e -> new FormListarEstoque().setVisible(true));
+        miListEstoque.addActionListener(e -> abrirTelaInterna(new FormListarEstoque()));
         menuEstoque.add(miListEstoque);
 
         JMenuItem miAltEstoque = new JMenuItem("3. Ajuste / Reposição de Estoque (Update)");
         miAltEstoque.setFont(fonteItemMenu);
-        miAltEstoque.addActionListener(e -> new FormAlterarEstoque().setVisible(true));
+        miAltEstoque.addActionListener(e -> abrirTelaInterna(new FormAlterarEstoque()));
         menuEstoque.add(miAltEstoque);
 
         JMenuItem miDelEstoque = new JMenuItem("4. Deletar Registro de Estoque (Delete)");
         miDelEstoque.setFont(fonteItemMenu);
-        miDelEstoque.addActionListener(e -> new FormDeletarEstoque().setVisible(true));
+        miDelEstoque.addActionListener(e -> abrirTelaInterna(new FormDeletarEstoque()));
         menuEstoque.add(miDelEstoque);
 
         menuBar.add(menuEstoque);
@@ -140,17 +153,17 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         JMenuItem miNovaVenda = new JMenuItem("1. Frente de Caixa / Nova Venda (Create)");
         miNovaVenda.setFont(fonteItemMenu);
-        miNovaVenda.addActionListener(e -> new FormNovaVenda().setVisible(true));
+        miNovaVenda.addActionListener(e -> abrirTelaInterna(new FormNovaVenda()));
         menuVendas.add(miNovaVenda);
 
         JMenuItem miListVendas = new JMenuItem("2. Relatório de Vendas [INNER JOIN] (Read)");
         miListVendas.setFont(fonteItemMenu);
-        miListVendas.addActionListener(e -> new FormListarVendas().setVisible(true));
+        miListVendas.addActionListener(e -> abrirTelaInterna(new FormListarVendas(this::abrirTelaInterna)));
         menuVendas.add(miListVendas);
 
         JMenuItem miCancVenda = new JMenuItem("3. Cancelar Venda com Estorno (Update/Delete)");
         miCancVenda.setFont(fonteItemMenu);
-        miCancVenda.addActionListener(e -> new FormCancelarVenda().setVisible(true));
+        miCancVenda.addActionListener(e -> abrirTelaInterna(new FormCancelarVenda()));
         menuVendas.add(miCancVenda);
 
         menuBar.add(menuVendas);
@@ -205,46 +218,46 @@ public class TelaPrincipal extends javax.swing.JFrame {
         painelModulos.add(criarCardModulo("Módulo de Clientes",
                 new String[]{"Cadastrar Cliente", "Listar Clientes", "Alterar Cliente", "Deletar Cliente"},
                 new Runnable[]{
-                        () -> new CadastroCliente().setVisible(true),
-                        () -> new FormListarClientes().setVisible(true),
-                        () -> new FormAlterarCliente().setVisible(true),
-                        () -> new FormDeletarCliente().setVisible(true)
+                        () -> abrirTelaInterna(new CadastroCliente()),
+                        () -> abrirTelaInterna(new FormListarClientes()),
+                        () -> abrirTelaInterna(new FormAlterarCliente()),
+                        () -> abrirTelaInterna(new FormDeletarCliente())
                 }));
 
         painelModulos.add(criarCardModulo("Módulo de Livros",
                 new String[]{"Cadastrar Livro", "Listar Livros", "Alterar Livro", "Deletar Livro"},
                 new Runnable[]{
-                        () -> new CadastroLivro().setVisible(true),
-                        () -> new FormListarLivros().setVisible(true),
-                        () -> new FormAlterarLivro().setVisible(true),
-                        () -> new FormDeletarLivro().setVisible(true)
+                        () -> abrirTelaInterna(new CadastroLivro()),
+                        () -> abrirTelaInterna(new FormListarLivros()),
+                        () -> abrirTelaInterna(new FormAlterarLivro()),
+                        () -> abrirTelaInterna(new FormDeletarLivro())
                 }));
 
         painelModulos.add(criarCardModulo("Módulo de Funcionários",
                 new String[]{"Cadastrar Funcionário", "Listar Funcionários", "Alterar Funcionário", "Deletar Funcionário"},
                 new Runnable[]{
-                        () -> new CadastroFuncionario().setVisible(true),
-                        () -> new FormListarFuncionarios().setVisible(true),
-                        () -> new FormAlterarFuncionario().setVisible(true),
-                        () -> new FormDeletarFuncionario().setVisible(true)
+                        () -> abrirTelaInterna(new CadastroFuncionario()),
+                        () -> abrirTelaInterna(new FormListarFuncionarios()),
+                        () -> abrirTelaInterna(new FormAlterarFuncionario()),
+                        () -> abrirTelaInterna(new FormDeletarFuncionario())
                 }));
 
         painelModulos.add(criarCardModulo("Módulo de Estoque / Lote",
                 new String[]{"Entrada de Estoque", "Consultar (Alertas)", "Ajuste / Reposição", "Deletar Estoque"},
                 new Runnable[]{
-                        () -> new CadastroEstoque().setVisible(true),
-                        () -> new FormListarEstoque().setVisible(true),
-                        () -> new FormAlterarEstoque().setVisible(true),
-                        () -> new FormDeletarEstoque().setVisible(true)
+                        () -> abrirTelaInterna(new CadastroEstoque()),
+                        () -> abrirTelaInterna(new FormListarEstoque()),
+                        () -> abrirTelaInterna(new FormAlterarEstoque()),
+                        () -> abrirTelaInterna(new FormDeletarEstoque())
                 }));
 
         painelModulos.add(criarCardModulo("Rotina Central: Vendas / PDV",
                 new String[]{"Frente de Caixa (PDV)", "Relatório c/ INNER JOIN", "Cancelar c/ Estorno", "Consultar Vendas"},
                 new Runnable[]{
-                        () -> new FormNovaVenda().setVisible(true),
-                        () -> new FormListarVendas().setVisible(true),
-                        () -> new FormCancelarVenda().setVisible(true),
-                        () -> new FormListarVendas().setVisible(true)
+                        () -> abrirTelaInterna(new FormNovaVenda()),
+                        () -> abrirTelaInterna(new FormListarVendas(this::abrirTelaInterna)),
+                        () -> abrirTelaInterna(new FormCancelarVenda()),
+                        () -> abrirTelaInterna(new FormListarVendas(this::abrirTelaInterna))
                 }));
 
         painelModulos.add(criarCardModulo("Ferramentas & Integração",
@@ -252,7 +265,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
                 new Runnable[]{
                         () -> acaoCargaCsv(),
                         () -> testarConexao(),
-                        () -> new FormListarLivros().setVisible(true),
+                        () -> abrirTelaInterna(new FormListarLivros()),
                         () -> System.exit(0)
                 }));
 
@@ -275,7 +288,53 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
         painelCentral.add(painelRodape, BorderLayout.SOUTH);
 
-        setContentPane(painelCentral);
+        painelInicial = painelCentral;
+        painelConteudo = new JPanel(new BorderLayout());
+        telaAtual = painelInicial;
+        painelConteudo.add(painelInicial, BorderLayout.CENTER);
+        setContentPane(painelConteudo);
+    }
+
+    private void abrirTelaInterna(JFrame tela) {
+        Component conteudo = tela.getContentPane();
+        String titulo = tela.getTitle();
+        tela.dispose();
+        historico.push(new TelaAnterior(telaAtual, tituloAtual));
+        exibirConteudo(conteudo, titulo);
+    }
+
+    private void exibirConteudo(Component conteudo, String titulo) {
+        telaAtual = conteudo;
+        tituloAtual = titulo;
+        painelConteudo.removeAll();
+
+        if (conteudo == painelInicial) {
+            painelConteudo.add(conteudo, BorderLayout.CENTER);
+            painelConteudo.revalidate();
+            painelConteudo.repaint();
+            return;
+        }
+
+        JPanel cabecalhoNavegacao = new JPanel(new BorderLayout(12, 0));
+        cabecalhoNavegacao.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        JButton voltar = new JButton("← Voltar");
+        voltar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        voltar.addActionListener(e -> voltarTela());
+        JLabel tituloTela = new JLabel(titulo);
+        tituloTela.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        cabecalhoNavegacao.add(voltar, BorderLayout.WEST);
+        cabecalhoNavegacao.add(tituloTela, BorderLayout.CENTER);
+
+        painelConteudo.add(cabecalhoNavegacao, BorderLayout.NORTH);
+        painelConteudo.add(conteudo, BorderLayout.CENTER);
+        painelConteudo.revalidate();
+        painelConteudo.repaint();
+    }
+
+    private void voltarTela() {
+        if (historico.isEmpty()) return;
+        TelaAnterior anterior = historico.pop();
+        exibirConteudo(anterior.componente, anterior.titulo);
     }
 
     private JPanel criarCardModulo(String titulo, String[] botoes, Runnable[] acoes) {

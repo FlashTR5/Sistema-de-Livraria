@@ -68,9 +68,10 @@ public class FormNovaVenda extends javax.swing.JFrame {
 
     public static class FuncionarioComboItem {
         public int id;
+        public int idLoja;
         public String nome;
         public String cargo;
-        public FuncionarioComboItem(int id, String nome, String cargo) { this.id = id; this.nome = nome; this.cargo = cargo; }
+        public FuncionarioComboItem(int id, int idLoja, String nome, String cargo) { this.id = id; this.idLoja = idLoja; this.nome = nome; this.cargo = cargo; }
         @Override public String toString() { return nome + " (" + cargo + ")"; }
     }
 
@@ -87,6 +88,7 @@ public class FormNovaVenda extends javax.swing.JFrame {
 
     public FormNovaVenda() {
         initComponents();
+        jCfuncionario.addActionListener(e -> atualizarDadosLivroSelecionado());
         carregarDadosIniciais();
     }
 
@@ -283,7 +285,7 @@ public class FormNovaVenda extends javax.swing.JFrame {
             ArrayList<Funcionario> funcionarios = mf.PesquisarPorFiltro(null, true);
             jCfuncionario.removeAllItems();
             for (Funcionario f : funcionarios) {
-                jCfuncionario.addItem(new FuncionarioComboItem(f.getCodigo(), f.getNome(), f.getCargo()));
+                jCfuncionario.addItem(new FuncionarioComboItem(f.getCodigo(), f.getIdLoja(), f.getNome(), f.getCargo()));
             }
 
             // Livros
@@ -315,12 +317,10 @@ public class FormNovaVenda extends javax.swing.JFrame {
 
         // Consulta saldo no estoque
         try {
-            Estoque est = new Estoque();
-            est.setIdLivro(item.id);
             ManterEstoque me = new ManterEstoque();
-            me.PesquisarRegistro(est);
-
-            saldoAtualLivroSelecionado = est.getQuantidadeDisponivel();
+            FuncionarioComboItem funcionario = (FuncionarioComboItem) jCfuncionario.getSelectedItem();
+            int idLoja = funcionario != null ? funcionario.idLoja : 1;
+            saldoAtualLivroSelecionado = me.consultarQuantidade(item.id, idLoja);
             if (saldoAtualLivroSelecionado <= 0) {
                 jLsaldoEstoque.setText("Estoque: 0 un (ESGOTADO)");
                 jLsaldoEstoque.setForeground(Color.RED);
@@ -439,6 +439,7 @@ public class FormNovaVenda extends javax.swing.JFrame {
         }
 
         Pedido p = new Pedido(cli.id, fun.id, (String) jCformaPagamento.getSelectedItem());
+        p.setIdLoja(fun.idLoja);
         p.setNomeCliente(cli.nome);
         p.setCpfCliente(cli.cpf);
         p.setNomeFuncionario(fun.nome);

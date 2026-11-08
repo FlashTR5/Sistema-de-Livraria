@@ -9,6 +9,7 @@ import java.sql.*;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.time.LocalDate;
 
 /**
  * Classe responsável pelas operações de CRUD e Transações da Rotina Central de Vendas (Pedidos).
@@ -39,16 +40,22 @@ public class ManterPedido extends DAO {
      */
     public void inserir(Pedido p) throws Exception {
         if (p.getIdCliente() <= 0) {
-            exibirMensagem("Selecione o cliente para registrar a venda.", "Aviso", JOptionPane.WARNING_MESSAGE);
-            return;
+            throw new IllegalArgumentException("Selecione o cliente para registrar a venda.");
         }
         if (p.getIdFuncionario() <= 0) {
-            exibirMensagem("Selecione o funcionário (operador de caixa).", "Aviso", JOptionPane.WARNING_MESSAGE);
-            return;
+            throw new IllegalArgumentException("Selecione o funcionário (operador de caixa).");
+        }
+        if (p.getIdLoja() <= 0) {
+            throw new IllegalArgumentException("Não foi possível identificar a loja do operador.");
         }
         if (p.getItens() == null || p.getItens().isEmpty()) {
-            exibirMensagem("Adicione pelo menos um livro ao carrinho.", "Aviso", JOptionPane.WARNING_MESSAGE);
-            return;
+            throw new IllegalArgumentException("Adicione pelo menos um livro ao carrinho.");
+        }
+
+        for (ItemPedido item : p.getItens()) {
+            if (item == null || item.getIdLivro() <= 0 || item.getQuantidade() <= 0 || item.getPrecoUnitario() == null || item.getPrecoUnitario().signum() < 0) {
+                throw new IllegalArgumentException("O carrinho contém um item inválido.");
+            }
         }
 
         p.recalcularTotal();
@@ -58,23 +65,18 @@ public class ManterPedido extends DAO {
             con.setAutoCommit(false); // Início da Transação Atômica ACID
 
             // 1. Validação prévia de Estoque para TODOS os itens (com lock de linha)
-            String sqlCheckEstoque = "SELECT quantidade FROM estoque WHERE id_livro = ? FOR UPDATE";
+            String sqlCheckEstoque = "SELECT quantidade FROM estoque WHERE id_livro = ? AND id_loja = ? FOR UPDATE";
             for (ItemPedido item : p.getItens()) {
                 try (PreparedStatement pstEstoque = con.prepareStatement(sqlCheckEstoque)) {
                     pstEstoque.setInt(1, item.getIdLivro());
+                    pstEstoque.setInt(2, p.getIdLoja());
                     try (ResultSet rsEst = pstEstoque.executeQuery()) {
                         int saldo = 0;
                         if (rsEst.next()) {
                             saldo = rsEst.getInt("quantidade");
                         }
                         if (saldo < item.getQuantidade()) {
-                            con.rollback();
-                            exibirMensagem(
-                                    "Estoque insuficiente para a obra:\n\"" + item.getTituloLivro() + "\"\n" +
-                                    "Saldo físico atual: " + saldo + " un | Quantidade solicitada: " + item.getQuantidade() + " un.\n\n" +
-                                    "A venda foi cancelada para manter a integridade do estoque.",
-                                    "Estoque Insuficiente", JOptionPane.WARNING_MESSAGE);
-                            return;
+                            throw new SQLException("Estoque insuficiente para \"" + item.getTituloLivro() + "\". Saldo: " + saldo + ", solicitado: " + item.getQuantidade() + ".");
                         }
                     }
                 }
@@ -86,7 +88,7 @@ public class ManterPedido extends DAO {
             int idPedidoGerado;
             try (PreparedStatement pstPedido = con.prepareStatement(sqlInsertPedido, Statement.RETURN_GENERATED_KEYS)) {
                 pstPedido.setInt(1, p.getIdCliente());
-                pstPedido.setInt(2, p.getIdLoja() > 0 ? p.getIdLoja() : 1);
+                pstPedido.setInt(2, p.getIdLoja());
                 pstPedido.setInt(3, p.getIdFuncionario());
                 pstPedido.setBigDecimal(4, p.getValorTotal());
                 pstPedido.setString(5, p.getStatus() != null ? p.getStatus() : "CONCLUIDO");
@@ -104,7 +106,7 @@ public class ManterPedido extends DAO {
 
             // 3. Gravação de cada Item em 'item_pedido' e Baixa Automática no 'estoque'
             String sqlInsertItem = "INSERT INTO item_pedido (id_pedido, id_livro, quantidade, preco_unitario) VALUES (?, ?, ?, ?)";
-            String sqlBaixaEstoque = "UPDATE estoque SET quantidade = quantidade - ?, data_ultima_atualizacao = NOW() WHERE id_livro = ?";
+            String sqlBaixaEstoque = "UPDATE estoque SET quantidade = quantidade - ? WHERE id_livro = ? AND id_loja = ? AND quantidade >= ?";
 
             try (PreparedStatement pstItem = con.prepareStatement(sqlInsertItem);
                  PreparedStatement pstBaixa = con.prepareStatement(sqlBaixaEstoque)) {
@@ -120,7 +122,9 @@ public class ManterPedido extends DAO {
                     // Abate quantidade do estoque
                     pstBaixa.setInt(1, item.getQuantidade());
                     pstBaixa.setInt(2, item.getIdLivro());
-                    pstBaixa.executeUpdate();
+                    pstBaixa.setInt(3, p.getIdLoja());
+                    pstBaixa.setInt(4, item.getQuantidade());
+                    if (pstBaixa.executeUpdate() != 1) throw new SQLException("O estoque mudou durante a venda. A operação foi desfeita; atualize e tente novamente.");
                 }
             }
 
@@ -162,6 +166,10 @@ public class ManterPedido extends DAO {
      * Lista detalhada das vendas relacionando Pedido, Cliente, Vendedor e Livros sem IDs brutos.
      */
     public ArrayList<LinhaRelatorioVenda> pesquisarVendasComDetalhes(String termo, String statusFiltro) throws Exception {
+        return pesquisarVendasComDetalhes(termo, statusFiltro, null, null);
+    }
+
+    public ArrayList<LinhaRelatorioVenda> pesquisarVendasComDetalhes(String termo, String statusFiltro, LocalDate dataInicio, LocalDate dataFim) throws Exception {
         ArrayList<LinhaRelatorioVenda> lista = new ArrayList<>();
         try {
             abrirBanco();
@@ -176,7 +184,7 @@ public class ManterPedido extends DAO {
                     "    c.cpf AS cpf_cliente, " +
                     "    f.nome AS nome_funcionario, " +
                     "    f.cargo AS cargo_funcionario, " +
-                    "    l.titulo AS titulo_livro, " +
+                    "    l.nome AS titulo_livro, " +
                     "    ip.quantidade, " +
                     "    ip.preco_unitario, " +
                     "    (ip.quantidade * ip.preco_unitario) AS subtotal " +
@@ -190,12 +198,14 @@ public class ManterPedido extends DAO {
 
             boolean temTermo = termo != null && !termo.trim().isEmpty();
             if (temTermo) {
-                sql.append("AND (LOWER(c.nome) LIKE ? OR LOWER(f.nome) LIKE ? OR LOWER(l.titulo) LIKE ?) ");
+                sql.append("AND (LOWER(c.nome) LIKE ? OR LOWER(f.nome) LIKE ? OR LOWER(l.nome) LIKE ?) ");
             }
 
             if (statusFiltro != null && !statusFiltro.isBlank() && !statusFiltro.equalsIgnoreCase("Todos")) {
                 sql.append("AND p.status = ? ");
             }
+            if (dataInicio != null) sql.append("AND p.data_pedido >= ? ");
+            if (dataFim != null) sql.append("AND p.data_pedido < DATE_ADD(?, INTERVAL 1 DAY) ");
 
             sql.append("ORDER BY p.id_pedido DESC, ip.id_item ASC");
 
@@ -210,6 +220,8 @@ public class ManterPedido extends DAO {
             if (statusFiltro != null && !statusFiltro.isBlank() && !statusFiltro.equalsIgnoreCase("Todos")) {
                 pst.setString(idx++, statusFiltro);
             }
+            if (dataInicio != null) pst.setDate(idx++, Date.valueOf(dataInicio));
+            if (dataFim != null) pst.setDate(idx++, Date.valueOf(dataFim));
 
             rs = pst.executeQuery();
             while (rs.next()) {
@@ -263,7 +275,7 @@ public class ManterPedido extends DAO {
                 if (ts != null) p.setDataPedido(ts.toLocalDateTime());
 
                 // Carrega os itens do pedido
-                String sqlItens = "SELECT ip.*, l.titulo, l.isbn FROM item_pedido ip " +
+                String sqlItens = "SELECT ip.*, l.nome AS titulo, l.isbn FROM item_pedido ip " +
                                   "INNER JOIN livro l ON l.id_livro = ip.id_livro " +
                                   "WHERE ip.id_pedido = ?";
                 try (PreparedStatement pstItens = con.prepareStatement(sqlItens)) {
@@ -301,7 +313,8 @@ public class ManterPedido extends DAO {
             con.setAutoCommit(false);
 
             // Verifica o status atual
-            String sqlCheck = "SELECT status, valor_total FROM pedidos WHERE id_pedido = ? FOR UPDATE";
+            String sqlCheck = "SELECT status, valor_total, id_loja FROM pedidos WHERE id_pedido = ? FOR UPDATE";
+            int idLoja;
             try (PreparedStatement pstCheck = con.prepareStatement(sqlCheck)) {
                 pstCheck.setInt(1, idPedido);
                 try (ResultSet rs = pstCheck.executeQuery()) {
@@ -311,10 +324,9 @@ public class ManterPedido extends DAO {
                         return;
                     }
                     String statusAtual = rs.getString("status");
+                    idLoja = rs.getInt("id_loja");
                     if ("CANCELADO".equalsIgnoreCase(statusAtual)) {
-                        con.rollback();
-                        exibirMensagem("Este pedido já se encontra cancelado anteriormente.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
-                        return;
+                        throw new SQLException("Este pedido já foi cancelado anteriormente.");
                     }
                 }
             }
@@ -328,7 +340,7 @@ public class ManterPedido extends DAO {
 
             // Recupera itens para estornar no estoque
             String sqlItens = "SELECT id_livro, quantidade FROM item_pedido WHERE id_pedido = ?";
-            String sqlEstorno = "UPDATE estoque SET quantidade = quantidade + ?, data_ultima_atualizacao = NOW() WHERE id_livro = ?";
+            String sqlEstorno = "UPDATE estoque SET quantidade = quantidade + ? WHERE id_livro = ? AND id_loja = ?";
 
             int totalItensEstornados = 0;
             try (PreparedStatement pstItens = con.prepareStatement(sqlItens);
@@ -341,10 +353,17 @@ public class ManterPedido extends DAO {
 
                         pstEstorno.setInt(1, qtd);
                         pstEstorno.setInt(2, idLivro);
-                        pstEstorno.executeUpdate();
+                        pstEstorno.setInt(3, idLoja);
+                        if (pstEstorno.executeUpdate() != 1) throw new SQLException("Não foi localizado o registro de estoque da loja para estornar o livro " + idLivro + ".");
                         totalItensEstornados += qtd;
                     }
                 }
+            }
+
+            try (PreparedStatement pstPagamento = con.prepareStatement(
+                    "UPDATE pagamento SET status = 'ESTORNADO' WHERE id_pedido = ? AND status <> 'ESTORNADO'")) {
+                pstPagamento.setInt(1, idPedido);
+                pstPagamento.executeUpdate();
             }
 
             con.commit();

@@ -16,6 +16,23 @@ public class ManterEstoque extends DAO {
 
     private static boolean colunasChecadas = false;
 
+    /** Retorna o saldo do livro na loja especificada, sem depender das colunas de apresentação do estoque. */
+    public int consultarQuantidade(int idLivro, int idLoja) throws Exception {
+        try {
+            abrirBanco();
+            String sql = "SELECT quantidade FROM estoque WHERE id_livro = ? AND id_loja = ?";
+            try (var stmt = con.prepareStatement(sql)) {
+                stmt.setInt(1, idLivro);
+                stmt.setInt(2, idLoja);
+                try (var resultado = stmt.executeQuery()) {
+                    return resultado.next() ? resultado.getInt("quantidade") : 0;
+                }
+            }
+        } finally {
+            fecharBanco();
+        }
+    }
+
     /**
      * Garante de forma transparente a presença das colunas 'localizacao_prateleira'
      * e 'data_ultima_atualizacao' na tabela estoque caso o script ainda não tenha sido executado.
@@ -140,7 +157,7 @@ public class ManterEstoque extends DAO {
             abrirBanco();
             garantirColunasEstoque();
 
-            String query = "SELECT e.*, l.titulo, l.isbn FROM estoque e " +
+            String query = "SELECT e.*, l.nome AS titulo, l.isbn FROM estoque e " +
                            "INNER JOIN livro l ON l.id_livro = e.id_livro " +
                            "WHERE e.id_estoque = ? OR e.id_livro = ?";
             pst = con.prepareStatement(query);
@@ -175,13 +192,13 @@ public class ManterEstoque extends DAO {
             garantirColunasEstoque();
 
             StringBuilder query = new StringBuilder(
-                    "SELECT e.*, l.titulo, l.isbn FROM estoque e " +
+                    "SELECT e.*, l.nome AS titulo, l.isbn FROM estoque e " +
                     "INNER JOIN livro l ON l.id_livro = e.id_livro WHERE 1=1 "
             );
 
             boolean temTermo = termo != null && !termo.trim().isEmpty();
             if (temTermo) {
-                query.append("AND (LOWER(l.titulo) LIKE ? OR l.isbn LIKE ?) ");
+                query.append("AND (LOWER(l.nome) LIKE ? OR l.isbn LIKE ?) ");
             }
 
             if ("Alerta (<= 5)".equalsIgnoreCase(statusAlerta) || "Apenas em Alerta".equalsIgnoreCase(statusAlerta)) {
@@ -192,7 +209,7 @@ public class ManterEstoque extends DAO {
                 query.append("AND e.quantidade > 5 ");
             }
 
-            query.append("ORDER BY e.quantidade ASC, l.titulo ASC");
+            query.append("ORDER BY e.quantidade ASC, l.nome ASC");
 
             pst = con.prepareStatement(query.toString());
             int idx = 1;

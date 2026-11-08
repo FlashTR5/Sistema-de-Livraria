@@ -8,6 +8,7 @@ import javax.swing.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
+import java.sql.Date;
 import java.time.Year;
 import java.util.ArrayList;
 
@@ -21,13 +22,13 @@ public class ManterLivro extends DAO {
     private static final String TABELA_ESTOQUE = "estoque";
 
     private static final String SELECT_BASE =
-            "SELECT l.id_livro, l.titulo, l.isbn, l.preco, l.ano_publicacao, l.id_editora, l.id_categoria, " +
+            "SELECT l.id_livro, l.nome AS titulo, l.isbn, l.preco, YEAR(l.lancamento) AS ano_publicacao, l.id_editora, l.id_genero AS id_categoria, " +
             "e.nome AS nome_editora, c.nome AS nome_categoria, " +
             "(SELECT COUNT(*) FROM " + TABELA_ITENS_VENDA + " iv WHERE iv.id_livro = l.id_livro) AS qtd_vendas, " +
             "(SELECT COUNT(*) FROM " + TABELA_ESTOQUE + " es WHERE es.id_livro = l.id_livro) AS qtd_estoque " +
             "FROM livro l " +
             "LEFT JOIN editora e ON e.id_editora = l.id_editora " +
-            "LEFT JOIN categoria c ON c.id_categoria = l.id_categoria ";
+            "LEFT JOIN genero c ON c.id_genero = l.id_genero ";
 
     /**
      * Métodos utilitários de tratamento de dados de livros
@@ -95,7 +96,7 @@ public class ManterLivro extends DAO {
             abrirBanco();
 
             // Verifica se já existe livro com o mesmo ISBN
-            pst = con.prepareStatement("SELECT id_livro, titulo FROM livro WHERE isbn = ?");
+            pst = con.prepareStatement("SELECT id_livro, nome AS titulo FROM livro WHERE isbn = ?");
             pst.setString(1, isbn);
             rs = pst.executeQuery();
 
@@ -105,18 +106,16 @@ public class ManterLivro extends DAO {
                 return;
             }
 
-            String sqlInsert = "INSERT INTO livro (nome, titulo, isbn, preco, ano_publicacao, id_editora, id_categoria, id_genero, id_autor) " +
-                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sqlInsert = "INSERT INTO livro (id_autor, id_editora, id_genero, isbn, nome, preco, lancamento) " +
+                               "VALUES (?, ?, ?, ?, ?, ?, ?)";
             pst = con.prepareStatement(sqlInsert);
-            pst.setString(1, l.getTitulo().trim());
-            pst.setString(2, l.getTitulo().trim());
-            pst.setString(3, isbn);
-            pst.setBigDecimal(4, l.getPreco());
-            pst.setInt(5, l.getAnoPublicacao());
-            pst.setInt(6, l.getIdEditora());
-            pst.setInt(7, l.getIdCategoria());
-            pst.setInt(8, l.getIdCategoria());
-            pst.setInt(9, 1);
+            pst.setInt(1, 1);
+            pst.setInt(2, l.getIdEditora());
+            pst.setInt(3, l.getIdCategoria());
+            pst.setString(4, isbn);
+            pst.setString(5, l.getTitulo().trim());
+            pst.setBigDecimal(6, l.getPreco());
+            pst.setDate(7, Date.valueOf(Year.of(l.getAnoPublicacao()).atDay(1)));
             pst.execute();
 
             exibirMensagem("Livro inserido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
@@ -255,12 +254,12 @@ public class ManterLivro extends DAO {
             boolean temCat = idCategoria > 0;
 
             if (temTermo) {
-                query.append("AND (LOWER(l.titulo) LIKE ? OR l.isbn LIKE ?) ");
+                query.append("AND (LOWER(l.nome) LIKE ? OR l.isbn LIKE ?) ");
             }
             if (temCat) {
-                query.append("AND l.id_categoria = ? ");
+                query.append("AND l.id_genero = ? ");
             }
-            query.append("ORDER BY l.titulo ASC");
+            query.append("ORDER BY l.nome ASC");
 
             pst = con.prepareStatement(query.toString());
             int idx = 1;
@@ -298,8 +297,8 @@ public class ManterLivro extends DAO {
         try {
             abrirBanco();
             String query = SELECT_BASE +
-                    "WHERE LOWER(l.titulo) LIKE ? OR l.isbn LIKE ? " +
-                    "ORDER BY l.titulo ASC";
+                    "WHERE LOWER(l.nome) LIKE ? OR l.isbn LIKE ? " +
+                    "ORDER BY l.nome ASC";
             pst = con.prepareStatement(query);
             String filtro = "%" + termo.trim().toLowerCase() + "%";
             String filtroIsbn = "%" + normalizarIsbn(termo) + "%";
@@ -334,17 +333,14 @@ public class ManterLivro extends DAO {
         try {
             abrirBanco();
 
-            String query = "UPDATE livro SET nome = ?, titulo = ?, preco = ?, ano_publicacao = ?, " +
-                           "id_editora = ?, id_categoria = ?, id_genero = ? WHERE id_livro = ?";
+            String query = "UPDATE livro SET nome = ?, preco = ?, lancamento = ?, id_editora = ?, id_genero = ? WHERE id_livro = ?";
             pst = con.prepareStatement(query);
             pst.setString(1, l.getTitulo().trim());
-            pst.setString(2, l.getTitulo().trim());
-            pst.setBigDecimal(3, l.getPreco());
-            pst.setInt(4, l.getAnoPublicacao());
-            pst.setInt(5, l.getIdEditora());
-            pst.setInt(6, l.getIdCategoria());
-            pst.setInt(7, l.getIdCategoria());
-            pst.setInt(8, l.getCodigo());
+            pst.setBigDecimal(2, l.getPreco());
+            pst.setDate(3, Date.valueOf(Year.of(l.getAnoPublicacao()).atDay(1)));
+            pst.setInt(4, l.getIdEditora());
+            pst.setInt(5, l.getIdCategoria());
+            pst.setInt(6, l.getCodigo());
 
             int linhasAfetadas = pst.executeUpdate();
             if (linhasAfetadas > 0) {
@@ -384,7 +380,7 @@ public class ManterLivro extends DAO {
         ArrayList<Categoria> categorias = new ArrayList<>();
         try {
             abrirBanco();
-            String query = "SELECT id_categoria, nome FROM categoria ORDER BY nome ASC";
+            String query = "SELECT id_genero AS id_categoria, nome FROM genero ORDER BY nome ASC";
             pst = con.prepareStatement(query);
             rs = pst.executeQuery();
 

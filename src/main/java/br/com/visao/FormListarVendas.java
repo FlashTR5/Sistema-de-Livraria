@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 /**
  * Formulário de Listagem e Detalhamento de Vendas (Read).
@@ -27,6 +30,8 @@ public class FormListarVendas extends javax.swing.JFrame {
     private final NumberFormat moeda = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"));
 
     private JTextField jTpesquisar;
+    private JTextField jTdataInicio;
+    private JTextField jTdataFim;
     private JComboBox<String> jCstatus;
     private JButton jBpesquisar;
     private JButton jBtodos;
@@ -35,8 +40,14 @@ public class FormListarVendas extends javax.swing.JFrame {
     private JLabel jLtotalRegistros;
     private JButton jBnovaVenda;
     private JButton jBcancelarVenda;
+    private final Consumer<JFrame> navegadorInterno;
 
     public FormListarVendas() {
+        this(null);
+    }
+
+    public FormListarVendas(Consumer<JFrame> navegadorInterno) {
+        this.navegadorInterno = navegadorInterno;
         initComponents();
         carregarVendas("", "Todos");
     }
@@ -51,31 +62,32 @@ public class FormListarVendas extends javax.swing.JFrame {
         panelPrincipal.setBorder(new EmptyBorder(15, 18, 15, 18));
 
         // Painel Superior: Filtros e Busca
-        JPanel panelTopo = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
+        JPanel panelTopo = new JPanel(new GridLayout(2, 1, 4, 2));
+        JPanel linhaBusca = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
 
         JLabel lblPesq = new JLabel("Buscar (Cliente / Vendedor / Livro):");
         lblPesq.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        panelTopo.add(lblPesq);
+        linhaBusca.add(lblPesq);
 
         jTpesquisar = new JTextField(18);
         jTpesquisar.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         jTpesquisar.addActionListener(e -> filtrar());
-        panelTopo.add(jTpesquisar);
+        linhaBusca.add(jTpesquisar);
 
         JLabel lblStatus = new JLabel("Status:");
         lblStatus.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        panelTopo.add(lblStatus);
+        linhaBusca.add(lblStatus);
 
         jCstatus = new JComboBox<>(new String[]{"Todos", "CONCLUIDO", "CANCELADO", "EM ANDAMENTO"});
         jCstatus.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         jCstatus.addActionListener(e -> filtrar());
-        panelTopo.add(jCstatus);
+        linhaBusca.add(jCstatus);
 
         jBpesquisar = new JButton("Filtrar");
         jBpesquisar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         jBpesquisar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         jBpesquisar.addActionListener(e -> filtrar());
-        panelTopo.add(jBpesquisar);
+        linhaBusca.add(jBpesquisar);
 
         jBtodos = new JButton("Limpar Filtros");
         jBtodos.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -83,9 +95,18 @@ public class FormListarVendas extends javax.swing.JFrame {
         jBtodos.addActionListener(e -> {
             jTpesquisar.setText("");
             jCstatus.setSelectedIndex(0);
-            carregarVendas("", "Todos");
+            jTdataInicio.setText("");
+            jTdataFim.setText("");
+            carregarVendas("", "Todos", null, null);
         });
-        panelTopo.add(jBtodos);
+        linhaBusca.add(jBtodos);
+        JPanel linhaDatas = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
+        linhaDatas.add(new JLabel("De (AAAA-MM-DD):"));
+        jTdataInicio = new JTextField(10); linhaDatas.add(jTdataInicio);
+        linhaDatas.add(new JLabel("Até:"));
+        jTdataFim = new JTextField(10); linhaDatas.add(jTdataFim);
+        linhaDatas.add(new JLabel("Período inclusivo"));
+        panelTopo.add(linhaBusca); panelTopo.add(linhaDatas);
 
         panelPrincipal.add(panelTopo, BorderLayout.NORTH);
 
@@ -121,7 +142,7 @@ public class FormListarVendas extends javax.swing.JFrame {
         jBnovaVenda.setFont(new Font("Segoe UI", Font.BOLD, 14));
         jBnovaVenda.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         jBnovaVenda.addActionListener(e -> {
-            new FormNovaVenda().setVisible(true);
+            abrirTela(new FormNovaVenda());
         });
         panelBotoes.add(jBnovaVenda);
 
@@ -134,9 +155,9 @@ public class FormListarVendas extends javax.swing.JFrame {
                 int idPedido = (int) jTbvendas.getValueAt(selectedRow, 0);
                 FormCancelarVenda form = new FormCancelarVenda();
                 form.buscarPedidoPorId(idPedido);
-                form.setVisible(true);
+                abrirTela(form);
             } else {
-                new FormCancelarVenda().setVisible(true);
+                abrirTela(new FormCancelarVenda());
             }
         });
         panelBotoes.add(jBcancelarVenda);
@@ -153,13 +174,31 @@ public class FormListarVendas extends javax.swing.JFrame {
         setContentPane(panelPrincipal);
     }
 
+    private void abrirTela(JFrame tela) {
+        if (navegadorInterno != null) navegadorInterno.accept(tela);
+        else tela.setVisible(true);
+    }
+
     private void filtrar() {
         String termo = jTpesquisar.getText().trim();
         String status = (String) jCstatus.getSelectedItem();
-        carregarVendas(termo, status);
+        try {
+            LocalDate inicio = jTdataInicio.getText().isBlank() ? null : LocalDate.parse(jTdataInicio.getText().trim());
+            LocalDate fim = jTdataFim.getText().isBlank() ? null : LocalDate.parse(jTdataFim.getText().trim());
+            if (inicio != null && fim != null && fim.isBefore(inicio)) throw new IllegalArgumentException("A data final deve ser igual ou posterior à data inicial.");
+            carregarVendas(termo, status, inicio, fim);
+        } catch (DateTimeParseException ex) {
+            JOptionPane.showMessageDialog(this, "Use o formato de data AAAA-MM-DD.", "Período inválido", JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Período inválido", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     public void carregarVendas(String termo, String statusFiltro) {
+        carregarVendas(termo, statusFiltro, null, null);
+    }
+
+    public void carregarVendas(String termo, String statusFiltro, LocalDate dataInicio, LocalDate dataFim) {
         String[] colunas = {
                 "Pedido #",
                 "Data / Hora",
@@ -182,7 +221,7 @@ public class FormListarVendas extends javax.swing.JFrame {
 
         try {
             ManterPedido manter = new ManterPedido();
-            ArrayList<LinhaRelatorioVenda> lista = manter.pesquisarVendasComDetalhes(termo, statusFiltro);
+            ArrayList<LinhaRelatorioVenda> lista = manter.pesquisarVendasComDetalhes(termo, statusFiltro, dataInicio, dataFim);
 
             BigDecimal faturamentoConcluido = BigDecimal.ZERO;
             Set<Integer> pedidosProcessados = new HashSet<>();
