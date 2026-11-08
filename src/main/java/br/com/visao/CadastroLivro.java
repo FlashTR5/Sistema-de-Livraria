@@ -4,8 +4,6 @@ import br.com.controle.Categoria;
 import br.com.controle.Editora;
 import br.com.controle.Livro;
 import br.com.entidade.ManterLivro;
-import br.com.livraria.model.validation.LivroValidator;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -173,9 +171,9 @@ public class CadastroLivro extends javax.swing.JFrame {
         try {
             Livro l = new Livro();
             l.setTitulo(jTtitulo.getText().trim());
-            l.setIsbn(LivroValidator.normalizarIsbn(jTisbn.getText()));
-            l.setPreco(LivroValidator.parsePreco(jTpreco.getText()));
-            l.setAnoPublicacao(LivroValidator.parseAno(jTano.getText()));
+            l.setIsbn(ManterLivro.normalizarIsbn(jTisbn.getText()));
+            l.setPreco(ManterLivro.parsePreco(jTpreco.getText()));
+            l.setAnoPublicacao(ManterLivro.parseAno(jTano.getText()));
 
             Editora ed = (Editora) jCeditora.getSelectedItem();
             Categoria cat = (Categoria) jCcategoria.getSelectedItem();
@@ -184,8 +182,6 @@ public class CadastroLivro extends javax.swing.JFrame {
 
             ml.inserir(l);
             limparCampos();
-        } catch (ValidationException ve) {
-            JOptionPane.showMessageDialog(this, ve.getMessage(), "Validação Cadastral", JOptionPane.WARNING_MESSAGE);
         } catch (Exception ex) {
             Logger.getLogger(CadastroLivro.class.getName()).log(Level.SEVERE, null, ex);
             JOptionPane.showMessageDialog(this, "Erro ao inserir: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);

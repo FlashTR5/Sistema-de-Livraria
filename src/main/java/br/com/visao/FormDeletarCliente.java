@@ -2,7 +2,6 @@ package br.com.visao;
 
 import br.com.controle.Cliente;
 import br.com.entidade.ManterCliente;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -157,8 +156,6 @@ public class FormDeletarCliente extends javax.swing.JFrame {
                 mc.deletarCliente(clienteConsultado);
                 limparConsulta();
                 jTcodigo.setText("");
-            } catch (ValidationException ve) {
-                // Mensagem tratada
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Erro ao deletar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             }

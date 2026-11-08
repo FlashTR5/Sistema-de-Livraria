@@ -3,22 +3,22 @@ package br.com.entidade;
 import br.com.controle.Categoria;
 import br.com.controle.Editora;
 import br.com.controle.Livro;
-import br.com.livraria.model.validation.LivroValidator;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
+import java.time.Year;
 import java.util.ArrayList;
 
 /**
  * Classe responsável pelas operações de CRUD da entidade Livro no banco de dados MySQL.
- * Estende DAO conforme padrão adotado na disciplina (mesmo padrão de ManterCliente).
+ * Estende DAO conforme padrão adotado na disciplina (mesmo padrão de ManterAluno).
  */
 public class ManterLivro extends DAO {
 
-    // >>> Ajuste aqui se as tabelas do seu banco tiverem outros nomes <<<
-    private static final String TABELA_ITENS_VENDA = "itens_pedido"; // deve ter a coluna id_livro
-    private static final String TABELA_ESTOQUE = "estoque";          // deve ter a coluna id_livro
+    private static final String TABELA_ITENS_VENDA = "item_pedido";
+    private static final String TABELA_ESTOQUE = "estoque";
 
     private static final String SELECT_BASE =
             "SELECT l.id_livro, l.titulo, l.isbn, l.preco, l.ano_publicacao, l.id_editora, l.id_categoria, " +
@@ -30,18 +30,66 @@ public class ManterLivro extends DAO {
             "LEFT JOIN categoria c ON c.id_categoria = l.id_categoria ";
 
     /**
+     * Métodos utilitários de tratamento de dados de livros
+     */
+    public static String normalizarIsbn(String isbn) {
+        return isbn == null ? "" : isbn.replaceAll("[\\s-]", "").toUpperCase();
+    }
+
+    public static BigDecimal parsePreco(String texto) {
+        String t = texto == null ? "" : texto.replace("R$", "").replaceAll("\\s", "");
+        if (t.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        if (t.contains(",")) {
+            t = t.replace(".", "").replace(",", ".");
+        }
+        try {
+            return new BigDecimal(t).setScale(2, RoundingMode.HALF_UP);
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    public static int parseAno(String texto) {
+        String t = texto == null ? "" : texto.trim();
+        try {
+            return Integer.parseInt(t);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
      * Operação CREATE: Insere um novo livro vinculado a uma editora e a uma categoria.
      */
     public void inserir(Livro l) throws Exception {
-        // Validações de negócio
-        LivroValidator.validarTitulo(l.getTitulo());
-        LivroValidator.validarIsbn(l.getIsbn());
-        LivroValidator.validarPreco(l.getPreco());
-        LivroValidator.validarAno(l.getAnoPublicacao());
-        LivroValidator.validarEditora(l.getIdEditora());
-        LivroValidator.validarCategoria(l.getIdCategoria());
+        if (l.getTitulo() == null || l.getTitulo().trim().isEmpty()) {
+            exibirMensagem("Informe o título do livro.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getIsbn() == null || l.getIsbn().trim().isEmpty()) {
+            exibirMensagem("Informe o ISBN do livro.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getPreco() == null || l.getPreco().compareTo(BigDecimal.ZERO) <= 0) {
+            exibirMensagem("O preço de venda deve ser maior que zero.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getAnoPublicacao() < 1450 || l.getAnoPublicacao() > Year.now().getValue() + 1) {
+            exibirMensagem("Ano de publicação inválido.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getIdEditora() <= 0) {
+            exibirMensagem("Selecione a editora do livro.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getIdCategoria() <= 0) {
+            exibirMensagem("Selecione a categoria do livro.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        String isbn = LivroValidator.normalizarIsbn(l.getIsbn());
+        String isbn = normalizarIsbn(l.getIsbn());
 
         try {
             abrirBanco();
@@ -54,18 +102,21 @@ public class ManterLivro extends DAO {
             if (rs.next()) {
                 exibirMensagem("Já existe um livro cadastrado com o ISBN: " + isbn + "\n(" + rs.getString("titulo") + ")",
                         "ISBN Duplicado", JOptionPane.WARNING_MESSAGE);
-                throw new ValidationException("ISBN já cadastrado anteriormente.");
+                return;
             }
 
-            String sqlInsert = "INSERT INTO livro (titulo, isbn, preco, ano_publicacao, id_editora, id_categoria) " +
-                               "VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlInsert = "INSERT INTO livro (nome, titulo, isbn, preco, ano_publicacao, id_editora, id_categoria, id_genero, id_autor) " +
+                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             pst = con.prepareStatement(sqlInsert);
             pst.setString(1, l.getTitulo().trim());
-            pst.setString(2, isbn);
-            pst.setBigDecimal(3, l.getPreco());
-            pst.setInt(4, l.getAnoPublicacao());
-            pst.setInt(5, l.getIdEditora());
-            pst.setInt(6, l.getIdCategoria());
+            pst.setString(2, l.getTitulo().trim());
+            pst.setString(3, isbn);
+            pst.setBigDecimal(4, l.getPreco());
+            pst.setInt(5, l.getAnoPublicacao());
+            pst.setInt(6, l.getIdEditora());
+            pst.setInt(7, l.getIdCategoria());
+            pst.setInt(8, l.getIdCategoria());
+            pst.setInt(9, 1);
             pst.execute();
 
             exibirMensagem("Livro inserido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
@@ -98,23 +149,25 @@ public class ManterLivro extends DAO {
             }
 
             if (qtdVendas > 0 || qtdEstoque > 0) {
-                StringBuilder msg = new StringBuilder("Exclusão NÃO permitida!\nO livro #" + l.getCodigo() + " possui:");
+                StringBuilder motivo = new StringBuilder("Exclusão NÃO permitida!\nO livro #" + l.getCodigo() + " possui vínculos no sistema:\n");
                 if (qtdVendas > 0) {
-                    msg.append("\n - ").append(qtdVendas).append(" venda(s) registrada(s)");
+                    motivo.append(" • ").append(qtdVendas).append(" item(ns) de venda registrado(s)\n");
                 }
                 if (qtdEstoque > 0) {
-                    msg.append("\n - ").append(qtdEstoque).append(" registro(s) de estoque");
+                    motivo.append(" • ").append(qtdEstoque).append(" registro(s) no estoque\n");
                 }
-                exibirMensagem(msg.toString(), "Bloqueio de Exclusão", JOptionPane.ERROR_MESSAGE);
-                throw new ValidationException(msg.toString());
+                motivo.append("\nPara manter a integridade referencial, remova os vínculos antes de excluir.");
+                exibirMensagem(motivo.toString(), "Bloqueio de Exclusão", JOptionPane.ERROR_MESSAGE);
+                return;
             }
 
-            // 2. Excluir livro
-            pst = con.prepareStatement("DELETE FROM livro WHERE id_livro = ?");
+            // 2. Excluir o livro
+            String sqlDelete = "DELETE FROM livro WHERE id_livro = ?";
+            pst = con.prepareStatement(sqlDelete);
             pst.setInt(1, l.getCodigo());
-            int linhas = pst.executeUpdate();
+            int linhasAfetadas = pst.executeUpdate();
 
-            if (linhas > 0) {
+            if (linhasAfetadas > 0) {
                 exibirMensagem("Livro deletado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             } else {
                 exibirMensagem("Nenhum livro encontrado com o código informado.", "Aviso", JOptionPane.WARNING_MESSAGE);
@@ -125,102 +178,65 @@ public class ManterLivro extends DAO {
     }
 
     /**
-     * Operação READ (por código): Pesquisa um registro de livro pelo código.
+     * Operação READ (por código): Pesquisa um livro pelo id_livro.
      */
     public void PesquisarRegistro(Livro l) throws Exception {
         try {
             abrirBanco();
-            pst = con.prepareStatement(SELECT_BASE + "WHERE l.id_livro = ?");
+            String query = SELECT_BASE + "WHERE l.id_livro = ?";
+            pst = con.prepareStatement(query);
             pst.setInt(1, l.getCodigo());
             rs = pst.executeQuery();
 
             if (rs.next()) {
-                preencherDadosLivro(l, rs);
+                preencherLivro(l, rs);
             } else {
                 exibirMensagem("Nenhum livro encontrado com o código " + l.getCodigo() + "!",
                         "Não Encontrado", JOptionPane.INFORMATION_MESSAGE);
             }
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar registro: " + e.getMessage());
-            throw e;
         } finally {
             fecharBanco();
         }
     }
 
     /**
-     * Operação READ (por ISBN): Pesquisa livro pelo ISBN.
+     * Operação READ (por ISBN): Pesquisa um livro pelo ISBN.
      */
     public void pesquisarPorIsbn(Livro l) throws Exception {
         try {
             abrirBanco();
-            pst = con.prepareStatement(SELECT_BASE + "WHERE l.isbn = ?");
-            pst.setString(1, LivroValidator.normalizarIsbn(l.getIsbn()));
+            String query = SELECT_BASE + "WHERE l.isbn = ?";
+            pst = con.prepareStatement(query);
+            pst.setString(1, normalizarIsbn(l.getIsbn()));
             rs = pst.executeQuery();
 
             if (rs.next()) {
-                preencherDadosLivro(l, rs);
+                preencherLivro(l, rs);
             } else {
-                exibirMensagem("Nenhum livro encontrado com o ISBN " + l.getIsbn() + "!",
+                exibirMensagem("Nenhum livro encontrado com o ISBN informado!",
                         "Não Encontrado", JOptionPane.INFORMATION_MESSAGE);
             }
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar por ISBN: " + e.getMessage());
-            throw e;
         } finally {
             fecharBanco();
         }
     }
 
     /**
-     * Operação READ (listar todos): Retorna todo o catálogo com a contagem de vínculos.
+     * Operação READ (listar todos): Retorna todos os livros cadastrados.
      */
     public ArrayList<Livro> PesquisarTudo() throws Exception {
-        return pesquisarFiltrado("", 0);
-    }
-
-    /**
-     * Operação READ (busca filtrada): Filtra por título OU ISBN (termo) e/ou por categoria.
-     * Termo vazio = sem filtro de texto; idCategoria <= 0 = todas as categorias.
-     */
-    public ArrayList<Livro> pesquisarFiltrado(String termo, int idCategoria) throws Exception {
         ArrayList<Livro> livros = new ArrayList<>();
         try {
             abrirBanco();
-
-            StringBuilder sql = new StringBuilder(SELECT_BASE).append("WHERE 1=1 ");
-            ArrayList<Object> params = new ArrayList<>();
-
-            if (termo != null && !termo.trim().isEmpty()) {
-                String t = termo.trim();
-                String isbnTermo = t.replaceAll("[\\s-]", "");
-                if (isbnTermo.isEmpty()) {
-                    isbnTermo = t;
-                }
-                sql.append("AND (LOWER(l.titulo) LIKE ? OR l.isbn LIKE ?) ");
-                params.add("%" + t.toLowerCase() + "%");
-                params.add("%" + isbnTermo + "%");
-            }
-            if (idCategoria > 0) {
-                sql.append("AND l.id_categoria = ? ");
-                params.add(idCategoria);
-            }
-            sql.append("ORDER BY l.titulo ASC");
-
-            pst = con.prepareStatement(sql.toString());
-            for (int i = 0; i < params.size(); i++) {
-                pst.setObject(i + 1, params.get(i));
-            }
+            String query = SELECT_BASE + "ORDER BY l.id_livro DESC";
+            pst = con.prepareStatement(query);
             rs = pst.executeQuery();
 
             while (rs.next()) {
                 Livro l = new Livro();
-                preencherDadosLivro(l, rs);
+                preencherLivro(l, rs);
                 livros.add(l);
             }
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar livros: " + e.getMessage());
-            throw e;
         } finally {
             fecharBanco();
         }
@@ -228,31 +244,110 @@ public class ManterLivro extends DAO {
     }
 
     /**
-     * Operação UPDATE: Ajuste de preço, título e informações editoriais (ISBN não é alterado).
-     * @param l
+     * Operação READ (busca por texto e categoria): Filtra livros por título/ISBN e categoria.
+     */
+    public ArrayList<Livro> pesquisarFiltrado(String termo, int idCategoria) throws Exception {
+        ArrayList<Livro> livros = new ArrayList<>();
+        try {
+            abrirBanco();
+            StringBuilder query = new StringBuilder(SELECT_BASE).append("WHERE 1=1 ");
+            boolean temTermo = termo != null && !termo.trim().isEmpty();
+            boolean temCat = idCategoria > 0;
+
+            if (temTermo) {
+                query.append("AND (LOWER(l.titulo) LIKE ? OR l.isbn LIKE ?) ");
+            }
+            if (temCat) {
+                query.append("AND l.id_categoria = ? ");
+            }
+            query.append("ORDER BY l.titulo ASC");
+
+            pst = con.prepareStatement(query.toString());
+            int idx = 1;
+            if (temTermo) {
+                String filtro = "%" + termo.trim().toLowerCase() + "%";
+                String filtroIsbn = "%" + normalizarIsbn(termo) + "%";
+                pst.setString(idx++, filtro);
+                pst.setString(idx++, filtroIsbn);
+            }
+            if (temCat) {
+                pst.setInt(idx++, idCategoria);
+            }
+
+            rs = pst.executeQuery();
+            while (rs.next()) {
+                Livro l = new Livro();
+                preencherLivro(l, rs);
+                livros.add(l);
+            }
+        } finally {
+            fecharBanco();
+        }
+        return livros;
+    }
+
+    /**
+     * Operação READ (busca por texto): Filtra livros por título ou ISBN.
+     */
+    public ArrayList<Livro> pesquisarPorTexto(String termo) throws Exception {
+        if (termo == null || termo.trim().isEmpty()) {
+            return PesquisarTudo();
+        }
+
+        ArrayList<Livro> livros = new ArrayList<>();
+        try {
+            abrirBanco();
+            String query = SELECT_BASE +
+                    "WHERE LOWER(l.titulo) LIKE ? OR l.isbn LIKE ? " +
+                    "ORDER BY l.titulo ASC";
+            pst = con.prepareStatement(query);
+            String filtro = "%" + termo.trim().toLowerCase() + "%";
+            String filtroIsbn = "%" + normalizarIsbn(termo) + "%";
+            pst.setString(1, filtro);
+            pst.setString(2, filtroIsbn);
+            rs = pst.executeQuery();
+
+            while (rs.next()) {
+                Livro l = new Livro();
+                preencherLivro(l, rs);
+                livros.add(l);
+            }
+        } finally {
+            fecharBanco();
+        }
+        return livros;
+    }
+
+    /**
+     * Operação UPDATE: Atualiza os dados de um livro existente.
      */
     public void editarLivro(Livro l) throws Exception {
-        LivroValidator.validarTitulo(l.getTitulo());
-        LivroValidator.validarPreco(l.getPreco());
-        LivroValidator.validarAno(l.getAnoPublicacao());
-        LivroValidator.validarEditora(l.getIdEditora());
-        LivroValidator.validarCategoria(l.getIdCategoria());
+        if (l.getTitulo() == null || l.getTitulo().trim().isEmpty()) {
+            exibirMensagem("Informe o título do livro.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (l.getPreco() == null || l.getPreco().compareTo(BigDecimal.ZERO) <= 0) {
+            exibirMensagem("O preço de venda deve ser maior que zero.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         try {
             abrirBanco();
 
-            String query = "UPDATE livro SET titulo = ?, preco = ?, ano_publicacao = ?, " +
-                           "id_editora = ?, id_categoria = ? WHERE id_livro = ?";
+            String query = "UPDATE livro SET nome = ?, titulo = ?, preco = ?, ano_publicacao = ?, " +
+                           "id_editora = ?, id_categoria = ?, id_genero = ? WHERE id_livro = ?";
             pst = con.prepareStatement(query);
             pst.setString(1, l.getTitulo().trim());
-            pst.setBigDecimal(2, l.getPreco());
-            pst.setInt(3, l.getAnoPublicacao());
-            pst.setInt(4, l.getIdEditora());
-            pst.setInt(5, l.getIdCategoria());
-            pst.setInt(6, l.getCodigo());
+            pst.setString(2, l.getTitulo().trim());
+            pst.setBigDecimal(3, l.getPreco());
+            pst.setInt(4, l.getAnoPublicacao());
+            pst.setInt(5, l.getIdEditora());
+            pst.setInt(6, l.getIdCategoria());
+            pst.setInt(7, l.getIdCategoria());
+            pst.setInt(8, l.getCodigo());
 
-            int linhas = pst.executeUpdate();
-            if (linhas > 0) {
+            int linhasAfetadas = pst.executeUpdate();
+            if (linhasAfetadas > 0) {
                 exibirMensagem("Livro alterado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             } else {
                 exibirMensagem("Nenhum livro encontrado para alteração.", "Aviso", JOptionPane.WARNING_MESSAGE);
@@ -262,48 +357,47 @@ public class ManterLivro extends DAO {
         }
     }
 
-    /** Apoio ao combobox de editoras.
-     * @return  */
+    /**
+     * Carrega a lista de Editoras cadastradas para popular comboboxes nas telas.
+     */
     public ArrayList<Editora> listarEditoras() throws Exception {
-        ArrayList<Editora> lista = new ArrayList<>();
+        ArrayList<Editora> editoras = new ArrayList<>();
         try {
             abrirBanco();
-            pst = con.prepareStatement("SELECT id_editora, nome FROM editora ORDER BY nome");
+            String query = "SELECT id_editora, nome FROM editora ORDER BY nome ASC";
+            pst = con.prepareStatement(query);
             rs = pst.executeQuery();
+
             while (rs.next()) {
-                lista.add(new Editora(rs.getInt("id_editora"), rs.getString("nome")));
+                editoras.add(new Editora(rs.getInt("id_editora"), rs.getString("nome")));
             }
         } finally {
             fecharBanco();
         }
-        return lista;
+        return editoras;
     }
 
-    /** Apoio ao combobox de categorias.
-     * @return
-     * @throws java.lang.Exception  */
+    /**
+     * Carrega a lista de Categorias/Gêneros cadastrados para popular comboboxes nas telas.
+     */
     public ArrayList<Categoria> listarCategorias() throws Exception {
-        ArrayList<Categoria> lista = new ArrayList<>();
+        ArrayList<Categoria> categorias = new ArrayList<>();
         try {
             abrirBanco();
-            pst = con.prepareStatement("SELECT id_categoria, nome FROM categoria ORDER BY nome");
+            String query = "SELECT id_categoria, nome FROM categoria ORDER BY nome ASC";
+            pst = con.prepareStatement(query);
             rs = pst.executeQuery();
+
             while (rs.next()) {
-                lista.add(new Categoria(rs.getInt("id_categoria"), rs.getString("nome")));
+                categorias.add(new Categoria(rs.getInt("id_categoria"), rs.getString("nome")));
             }
         } finally {
             fecharBanco();
         }
-        return lista;
+        return categorias;
     }
 
-    private void exibirMensagem(String msg, String titulo, int tipo) {
-        if (!java.awt.GraphicsEnvironment.isHeadless() && !"true".equals(System.getProperty("java.awt.headless"))) {
-            JOptionPane.showMessageDialog(null, msg, titulo, tipo);
-        }
-    }
-
-    private void preencherDadosLivro(Livro l, ResultSet rs) throws Exception {
+    private void preencherLivro(Livro l, ResultSet rs) throws Exception {
         l.setCodigo(rs.getInt("id_livro"));
         l.setTitulo(rs.getString("titulo"));
         l.setIsbn(rs.getString("isbn"));
@@ -313,7 +407,11 @@ public class ManterLivro extends DAO {
         l.setIdCategoria(rs.getInt("id_categoria"));
         l.setNomeEditora(rs.getString("nome_editora"));
         l.setNomeCategoria(rs.getString("nome_categoria"));
-        l.setQuantidadeVendas(rs.getInt("qtd_vendas"));
-        l.setQuantidadeEstoque(rs.getInt("qtd_estoque"));
+
+        try {
+            l.setQuantidadeVendas(rs.getInt("qtd_vendas"));
+            l.setQuantidadeEstoque(rs.getInt("qtd_estoque"));
+        } catch (Exception ignored) {
+        }
     }
 }

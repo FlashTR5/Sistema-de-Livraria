@@ -1,4 +1,4 @@
-package br.com.livraria.model;
+package br.com.controle;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -41,7 +41,6 @@ public class Endereco implements Serializable {
             return new Endereco();
         }
         try {
-            // Se for apenas uma string simples entre aspas (ex: "Rua tal, 10")
             if (json.startsWith("\"") && json.endsWith("\"")) {
                 String limpo = json.substring(1, json.length() - 1);
                 Endereco e = new Endereco();
@@ -148,12 +147,12 @@ public class Endereco implements Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         Endereco endereco = (Endereco) o;
         return Objects.equals(logradouro, endereco.logradouro) &&
-                Objects.equals(numero, endereco.numero) &&
-                Objects.equals(complemento, endereco.complemento) &&
-                Objects.equals(bairro, endereco.bairro) &&
-                Objects.equals(cidade, endereco.cidade) &&
-                Objects.equals(estado, endereco.estado) &&
-                Objects.equals(cep, endereco.cep);
+               Objects.equals(numero, endereco.numero) &&
+               Objects.equals(complemento, endereco.complemento) &&
+               Objects.equals(bairro, endereco.bairro) &&
+               Objects.equals(cidade, endereco.cidade) &&
+               Objects.equals(estado, endereco.estado) &&
+               Objects.equals(cep, endereco.cep);
     }
 
     @Override

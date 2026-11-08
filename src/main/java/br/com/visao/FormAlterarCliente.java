@@ -1,9 +1,8 @@
 package br.com.visao;
 
 import br.com.controle.Cliente;
+import br.com.controle.Endereco;
 import br.com.entidade.ManterCliente;
-import br.com.livraria.model.Endereco;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -274,8 +273,6 @@ public class FormAlterarCliente extends javax.swing.JFrame {
         ManterCliente mc = new ManterCliente();
         try {
             mc.editarCliente(c);
-        } catch (ValidationException ve) {
-            JOptionPane.showMessageDialog(this, ve.getMessage(), "Validação", JOptionPane.WARNING_MESSAGE);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao alterar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
         }

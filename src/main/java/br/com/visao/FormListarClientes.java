@@ -1,8 +1,8 @@
 package br.com.visao;
 
 import br.com.controle.Cliente;
+import br.com.entidade.CargaCsv;
 import br.com.entidade.ManterCliente;
-import br.com.livraria.model.service.CargaCsvService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -176,7 +176,7 @@ public class FormListarClientes extends javax.swing.JFrame {
     }
 
     private void jBcargaCsvActionPerformed(java.awt.event.ActionEvent evt) {
-        File arquivoPadrao = CargaCsvService.localizarArquivoPadrao();
+        File arquivoPadrao = CargaCsv.localizarArquivoPadrao();
         int resp = JOptionPane.showConfirmDialog(this,
                 "Deseja importar os dados de:\n" +
                 (arquivoPadrao != null ? arquivoPadrao.getAbsolutePath() : "carga_clientes.csv") + "?",
@@ -184,10 +184,10 @@ public class FormListarClientes extends javax.swing.JFrame {
 
         if (resp == JOptionPane.YES_OPTION && arquivoPadrao != null) {
             setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-            SwingWorker<CargaCsvService.ResultadoCarga, Void> worker = new SwingWorker<>() {
+            SwingWorker<CargaCsv.ResultadoCarga, Void> worker = new SwingWorker<>() {
                 @Override
-                protected CargaCsvService.ResultadoCarga doInBackground() throws Exception {
-                    CargaCsvService service = new CargaCsvService();
+                protected CargaCsv.ResultadoCarga doInBackground() throws Exception {
+                    CargaCsv service = new CargaCsv();
                     return service.executarCarga(arquivoPadrao);
                 }
 
@@ -195,7 +195,7 @@ public class FormListarClientes extends javax.swing.JFrame {
                 protected void done() {
                     setCursor(Cursor.getDefaultCursor());
                     try {
-                        CargaCsvService.ResultadoCarga res = get();
+                        CargaCsv.ResultadoCarga res = get();
                         JOptionPane.showMessageDialog(FormListarClientes.this, res.getResumo(), "Resultado Carga CSV", JOptionPane.INFORMATION_MESSAGE);
                         listarClientes("");
                     } catch (Exception ex) {

@@ -1,10 +1,8 @@
 package br.com.visao;
 
 import br.com.controle.Cliente;
+import br.com.controle.Endereco;
 import br.com.entidade.ManterCliente;
-import br.com.livraria.model.Endereco;
-import br.com.livraria.model.validation.ClienteValidator;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -189,7 +187,7 @@ public class CadastroCliente extends javax.swing.JFrame {
     private void jBcadastrarActionPerformed(java.awt.event.ActionEvent evt) {
         Cliente c = new Cliente();
         c.setNome(jTnome.getText().trim());
-        c.setCpf(ClienteValidator.formatarCpf(jTcpf.getText().trim()));
+        c.setCpf(ManterCliente.formatarCpf(jTcpf.getText().trim()));
         c.setEmail(jTemail.getText().trim());
         c.setTelefone(jTtelefone.getText().trim());
         c.setAtivo(jChativo.isSelected());
@@ -217,8 +215,6 @@ public class CadastroCliente extends javax.swing.JFrame {
         try {
             mc.inserir(c);
             limparCampos();
-        } catch (ValidationException ve) {
-            JOptionPane.showMessageDialog(this, ve.getMessage(), "Validação Cadastral", JOptionPane.WARNING_MESSAGE);
         } catch (Exception ex) {
             Logger.getLogger(CadastroCliente.class.getName()).log(Level.SEVERE, null, ex);
             JOptionPane.showMessageDialog(this, "Erro ao inserir: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);

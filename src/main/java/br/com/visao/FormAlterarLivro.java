@@ -4,8 +4,6 @@ import br.com.controle.Categoria;
 import br.com.controle.Editora;
 import br.com.controle.Livro;
 import br.com.entidade.ManterLivro;
-import br.com.livraria.model.validation.LivroValidator;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -251,8 +249,8 @@ public class FormAlterarLivro extends javax.swing.JFrame {
             l.setCodigo(Integer.parseInt(jTcodigo.getText().trim()));
             l.setIsbn(jTisbn.getText().trim());
             l.setTitulo(jTtitulo.getText().trim());
-            l.setPreco(LivroValidator.parsePreco(jTpreco.getText()));
-            l.setAnoPublicacao(LivroValidator.parseAno(jTano.getText()));
+            l.setPreco(ManterLivro.parsePreco(jTpreco.getText()));
+            l.setAnoPublicacao(ManterLivro.parseAno(jTano.getText()));
 
             Editora ed = (Editora) jCeditora.getSelectedItem();
             Categoria cat = (Categoria) jCcategoria.getSelectedItem();
@@ -260,8 +258,6 @@ public class FormAlterarLivro extends javax.swing.JFrame {
             l.setIdCategoria(cat != null ? cat.getCodigo() : 0);
 
             ml.editarLivro(l);
-        } catch (ValidationException ve) {
-            JOptionPane.showMessageDialog(this, ve.getMessage(), "Validação", JOptionPane.WARNING_MESSAGE);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao alterar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
         }

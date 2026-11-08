@@ -2,7 +2,6 @@ package br.com.visao;
 
 import br.com.controle.Livro;
 import br.com.entidade.ManterLivro;
-import br.com.livraria.model.validation.ValidationException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -167,8 +166,6 @@ public class FormDeletarLivro extends javax.swing.JFrame {
                 ml.deletarLivro(livroConsultado);
                 limparConsulta();
                 jTcodigo.setText("");
-            } catch (ValidationException ve) {
-                // Mensagem já exibida pelo ManterLivro (bloqueio de exclusão)
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Erro ao deletar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             }

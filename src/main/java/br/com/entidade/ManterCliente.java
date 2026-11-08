@@ -1,15 +1,14 @@
 package br.com.entidade;
 
 import br.com.controle.Cliente;
-import br.com.livraria.model.Endereco;
-import br.com.livraria.model.validation.ClienteValidator;
-import br.com.livraria.model.validation.ValidationException;
+import br.com.controle.Endereco;
 
 import javax.swing.*;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 /**
  * Classe responsável pelas operações de CRUD da entidade Cliente no banco de dados MySQL.
@@ -17,96 +16,118 @@ import java.util.ArrayList;
  */
 public class ManterCliente extends DAO {
 
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$"
+    );
+
+    /** Formata CPF adicionando pontuação 000.000.000-00 */
+    public static String formatarCpf(String cpf) {
+        if (cpf == null) return "";
+        String d = cpf.replaceAll("\\D", "");
+        if (d.length() != 11) return cpf;
+        return d.substring(0, 3) + "." + d.substring(3, 6) + "." + d.substring(6, 9) + "-" + d.substring(9, 11);
+    }
+
     /**
      * Operação CREATE: Insere um novo cliente com validação de CPF e dados de contato.
      */
     public void inserir(Cliente c) throws Exception {
-        // Validações de negócio
-        ClienteValidator.validarNome(c.getNome());
-        ClienteValidator.validarCpf(c.getCpf(), true);
-        ClienteValidator.validarEmail(c.getEmail());
-        ClienteValidator.validarTelefone(c.getTelefone());
+        if (c.getNome() == null || c.getNome().trim().length() < 3) {
+            exibirMensagem("O nome do cliente deve conter pelo menos 3 caracteres.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (c.getCpf() == null || c.getCpf().replaceAll("\\D", "").length() != 11) {
+            exibirMensagem("O CPF deve conter exatamente 11 dígitos numéricos.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (c.getEmail() == null || !EMAIL_PATTERN.matcher(c.getEmail().trim()).matches()) {
+            exibirMensagem("O e-mail informado é inválido: '" + c.getEmail() + "'.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        abrirBanco();
+        try {
+            abrirBanco();
 
-        // Verifica se já existe cliente com o mesmo CPF
-        String sqlExiste = "SELECT id_cliente, nome FROM cliente WHERE cpf = ?";
-        pst = con.prepareStatement(sqlExiste);
-        pst.setString(1, c.getCpf());
-        rs = pst.executeQuery();
+            // Verifica se já existe cliente com o mesmo CPF
+            String sqlExiste = "SELECT id_cliente, nome FROM cliente WHERE cpf = ?";
+            pst = con.prepareStatement(sqlExiste);
+            pst.setString(1, c.getCpf().trim());
+            rs = pst.executeQuery();
 
-        if (rs.next()) {
-            exibirMensagem("Já existe um cliente cadastrado com o CPF: " + c.getCpf(),
-                    "CPF Duplicado", JOptionPane.WARNING_MESSAGE);
+            if (rs.next()) {
+                exibirMensagem("Já existe um cliente cadastrado com o CPF: " + c.getCpf(),
+                        "CPF Duplicado", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            String sqlInsert = "INSERT INTO cliente (nome, cpf, email, nasc, telefone, endereco, ativo, sexo, nacionalidade, data_cadastro) " +
+                               "VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), ?, ?, ?, NOW())";
+            pst = con.prepareStatement(sqlInsert);
+            pst.setString(1, c.getNome().trim());
+            pst.setString(2, c.getCpf().trim());
+            pst.setString(3, c.getEmail().trim());
+
+            if (c.getNasc() != null) {
+                pst.setDate(4, Date.valueOf(c.getNasc()));
+            } else {
+                pst.setNull(4, java.sql.Types.DATE);
+            }
+
+            pst.setString(5, c.getTelefone());
+
+            String enderecoJson = c.getEndereco() != null ? c.getEndereco().toJson() : "{}";
+            pst.setString(6, enderecoJson);
+
+            pst.setBoolean(7, c.isAtivo());
+            pst.setString(8, c.getSexo());
+            pst.setString(9, c.getNacionalidade() != null ? c.getNacionalidade() : "Brasil");
+
+            pst.execute();
+            exibirMensagem("Cliente inserido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+        } finally {
             fecharBanco();
-            throw new ValidationException("CPF já cadastrado anteriormente.");
         }
-
-        String sqlInsert = "INSERT INTO cliente (nome, cpf, email, nasc, telefone, endereco, ativo, sexo, nacionalidade, data_cadastro) " +
-                           "VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), ?, ?, ?, NOW())";
-        pst = con.prepareStatement(sqlInsert);
-        pst.setString(1, c.getNome());
-        pst.setString(2, c.getCpf());
-        pst.setString(3, c.getEmail());
-
-        if (c.getNasc() != null) {
-            pst.setDate(4, Date.valueOf(c.getNasc()));
-        } else {
-            pst.setNull(4, java.sql.Types.DATE);
-        }
-
-        pst.setString(5, c.getTelefone());
-
-        String enderecoJson = c.getEndereco() != null ? c.getEndereco().toJson() : "{}";
-        pst.setString(6, enderecoJson);
-
-        pst.setBoolean(7, c.isAtivo());
-        pst.setString(8, c.getSexo());
-        pst.setString(9, c.getNacionalidade() != null ? c.getNacionalidade() : "Brasil");
-
-        pst.execute();
-        exibirMensagem("Cliente inserido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-        fecharBanco();
     }
 
     /**
      * Operação DELETE: Exclusão permitida APENAS para clientes sem histórico de compras.
      */
     public void deletarCliente(Cliente c) throws Exception {
-        abrirBanco();
+        try {
+            abrirBanco();
 
-        // 1. Verificar histórico de compras na tabela pedidos
-        String sqlVerifica = "SELECT COUNT(*) FROM pedidos WHERE id_cliente = ?";
-        pst = con.prepareStatement(sqlVerifica);
-        pst.setInt(1, c.getCodigo());
-        rs = pst.executeQuery();
+            // 1. Verificar histórico de compras na tabela pedidos
+            String sqlVerifica = "SELECT COUNT(*) FROM pedidos WHERE id_cliente = ?";
+            pst = con.prepareStatement(sqlVerifica);
+            pst.setInt(1, c.getCodigo());
+            rs = pst.executeQuery();
 
-        int qtdPedidos = 0;
-        if (rs.next()) {
-            qtdPedidos = rs.getInt(1);
-        }
+            int qtdPedidos = 0;
+            if (rs.next()) {
+                qtdPedidos = rs.getInt(1);
+            }
 
-        if (qtdPedidos > 0) {
-            String msg = "Exclusão NÃO permitida!\nO cliente #" + c.getCodigo() +
-                         " possui histórico de compras com " + qtdPedidos + " pedido(s) registrado(s).";
-            exibirMensagem(msg, "Bloqueio de Exclusão", JOptionPane.ERROR_MESSAGE);
+            if (qtdPedidos > 0) {
+                String msg = "Exclusão NÃO permitida!\nO cliente #" + c.getCodigo() +
+                             " possui histórico de compras com " + qtdPedidos + " pedido(s) registrado(s).";
+                exibirMensagem(msg, "Bloqueio de Exclusão", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 2. Excluir cliente
+            String sqlDelete = "DELETE FROM cliente WHERE id_cliente = ?";
+            pst = con.prepareStatement(sqlDelete);
+            pst.setInt(1, c.getCodigo());
+            int linhas = pst.executeUpdate();
+
+            if (linhas > 0) {
+                exibirMensagem("Cliente deletado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                exibirMensagem("Nenhum cliente encontrado com o código informado.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            }
+        } finally {
             fecharBanco();
-            throw new ValidationException(msg);
         }
-
-        // 2. Excluir cliente
-        String sqlDelete = "DELETE FROM cliente WHERE id_cliente = ?";
-        pst = con.prepareStatement(sqlDelete);
-        pst.setInt(1, c.getCodigo());
-        int linhas = pst.executeUpdate();
-
-        if (linhas > 0) {
-            exibirMensagem("Cliente deletado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            exibirMensagem("Nenhum cliente encontrado com o código informado.", "Aviso", JOptionPane.WARNING_MESSAGE);
-        }
-
-        fecharBanco();
     }
 
     /**
@@ -127,10 +148,8 @@ public class ManterCliente extends DAO {
                 exibirMensagem("Nenhum cliente encontrado com o código " + c.getCodigo() + "!",
                         "Não Encontrado", JOptionPane.INFORMATION_MESSAGE);
             }
+        } finally {
             fecharBanco();
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar registro: " + e.getMessage());
-            throw e;
         }
     }
 
@@ -152,10 +171,8 @@ public class ManterCliente extends DAO {
                 exibirMensagem("Nenhum cliente encontrado com o CPF " + c.getCpf() + "!",
                         "Não Encontrado", JOptionPane.INFORMATION_MESSAGE);
             }
+        } finally {
             fecharBanco();
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar por CPF: " + e.getMessage());
-            throw e;
         }
     }
 
@@ -176,10 +193,8 @@ public class ManterCliente extends DAO {
                 preencherDadosCliente(c, rs);
                 clientes.add(c);
             }
+        } finally {
             fecharBanco();
-        } catch (Exception e) {
-            System.out.println("Erro ao listar todos os clientes: " + e.getMessage());
-            throw e;
         }
         return clientes;
     }
@@ -209,10 +224,8 @@ public class ManterCliente extends DAO {
                 preencherDadosCliente(c, rs);
                 clientes.add(c);
             }
+        } finally {
             fecharBanco();
-        } catch (Exception e) {
-            System.out.println("Erro ao pesquisar por nome/CPF: " + e.getMessage());
-            throw e;
         }
         return clientes;
     }
@@ -221,38 +234,39 @@ public class ManterCliente extends DAO {
      * Operação UPDATE: Alteração de endereço, e-mail e telefone de contato.
      */
     public void editarCliente(Cliente c) throws Exception {
-        ClienteValidator.validarNome(c.getNome());
-        ClienteValidator.validarEmail(c.getEmail());
-        ClienteValidator.validarTelefone(c.getTelefone());
-
-        abrirBanco();
-
-        String query = "UPDATE cliente SET nome = ?, email = ?, telefone = ?, " +
-                       "endereco = CAST(? AS JSON), ativo = ? WHERE id_cliente = ?";
-        pst = con.prepareStatement(query);
-        pst.setString(1, c.getNome());
-        pst.setString(2, c.getEmail());
-        pst.setString(3, c.getTelefone());
-
-        String enderecoJson = c.getEndereco() != null ? c.getEndereco().toJson() : "{}";
-        pst.setString(4, enderecoJson);
-
-        pst.setBoolean(5, c.isAtivo());
-        pst.setInt(6, c.getCodigo());
-
-        int linhas = pst.executeUpdate();
-        if (linhas > 0) {
-            exibirMensagem("Cliente alterado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            exibirMensagem("Nenhum cliente encontrado para alteração.", "Aviso", JOptionPane.WARNING_MESSAGE);
+        if (c.getNome() == null || c.getNome().trim().length() < 3) {
+            exibirMensagem("O nome do cliente deve conter pelo menos 3 caracteres.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (c.getEmail() == null || !EMAIL_PATTERN.matcher(c.getEmail().trim()).matches()) {
+            exibirMensagem("O e-mail informado é inválido: '" + c.getEmail() + "'.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
         }
 
-        fecharBanco();
-    }
+        try {
+            abrirBanco();
 
-    private void exibirMensagem(String msg, String titulo, int tipo) {
-        if (!java.awt.GraphicsEnvironment.isHeadless() && !"true".equals(System.getProperty("java.awt.headless"))) {
-            JOptionPane.showMessageDialog(null, msg, titulo, tipo);
+            String query = "UPDATE cliente SET nome = ?, email = ?, telefone = ?, " +
+                           "endereco = CAST(? AS JSON), ativo = ? WHERE id_cliente = ?";
+            pst = con.prepareStatement(query);
+            pst.setString(1, c.getNome().trim());
+            pst.setString(2, c.getEmail().trim());
+            pst.setString(3, c.getTelefone());
+
+            String enderecoJson = c.getEndereco() != null ? c.getEndereco().toJson() : "{}";
+            pst.setString(4, enderecoJson);
+
+            pst.setBoolean(5, c.isAtivo());
+            pst.setInt(6, c.getCodigo());
+
+            int linhas = pst.executeUpdate();
+            if (linhas > 0) {
+                exibirMensagem("Cliente alterado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                exibirMensagem("Nenhum cliente encontrado para alteração.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            }
+        } finally {
+            fecharBanco();
         }
     }
 
