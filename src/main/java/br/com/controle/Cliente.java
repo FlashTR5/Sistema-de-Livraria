@@ -1,7 +1,5 @@
 package br.com.controle;
 
-import br.com.livraria.model.Endereco;
-
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
