@@ -156,7 +156,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
         miNovaVenda.addActionListener(e -> abrirTelaInterna(new FormNovaVenda()));
         menuVendas.add(miNovaVenda);
 
-        JMenuItem miListVendas = new JMenuItem("2. Relatório de Vendas [INNER JOIN] (Read)");
+        JMenuItem miListVendas = new JMenuItem("2. Relatório de Vendas (Read)");
         miListVendas.setFont(fonteItemMenu);
         miListVendas.addActionListener(e -> abrirTelaInterna(new FormListarVendas(this::abrirTelaInterna)));
         menuVendas.add(miListVendas);
@@ -252,7 +252,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
                 }));
 
         painelModulos.add(criarCardModulo("Rotina Central: Vendas / PDV",
-                new String[]{"Frente de Caixa (PDV)", "Relatório c/ INNER JOIN", "Cancelar c/ Estorno", "Consultar Vendas"},
+                new String[]{"Frente de Caixa (PDV)", "Relatório", "Cancelar c/ Estorno", "Consultar Vendas"},
                 new Runnable[]{
                         () -> abrirTelaInterna(new FormNovaVenda()),
                         () -> abrirTelaInterna(new FormListarVendas(this::abrirTelaInterna)),
